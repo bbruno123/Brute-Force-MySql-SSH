@@ -1,8 +1,14 @@
+Claro. Mantive o README, mas deixei explícito que o projeto foi desenvolvido/testado no **Kali Linux**, que atualmente é voltado para **Linux**, e acrescentei uma seção explicando o que pode precisar ser adaptado em Debian, Ubuntu, Fedora, Arch e outras distribuições.
+
+ README.md
+
 # BruteForceMySql
 
  Programa para testes de autenticação em **MySQL** e **SSH**, utilizando uma wordlist configurável e gerenciamento de conexões VPN através do OpenVPN.
 
  > ⚠️ **Aviso:** utilize este projeto somente em sistemas, contas e ambientes para os quais você tenha autorização explícita para realizar testes de segurança.
+
+ > 🐧 **Sistema operacional:** este projeto foi desenvolvido e testado no **Kali Linux**. Atualmente, seu funcionamento é destinado a sistemas **Linux**. Windows e macOS não são suportados pela implementação atual.
 
  ## 📁 Estrutura do projeto
 
@@ -41,6 +47,137 @@ BruteForceMySql/
 
  > **Nota:** recomenda-se utilizar `wordlists` em vez de `wordists`, pois esse é o nome convencional para esse tipo de diretório.
 
+ ## 🐧 Compatibilidade com Linux
+
+ O projeto foi **desenvolvido e testado no Kali Linux**.
+
+ A implementação atual depende de ferramentas e caminhos específicos do ambiente Linux, portanto não deve ser considerada automaticamente compatível com todas as distribuições.
+
+ ### Distribuições Linux
+
+ | Distribuição | Compatibilidade atual | Observação |
+| --- | --- | --- |
+| **Kali Linux** | ✅ Testado | Ambiente de desenvolvimento |
+| **Debian** | ⚠️ Pode funcionar | Pode exigir instalação/configuração de pacotes |
+| **Ubuntu** | ⚠️ Pode funcionar | Pode exigir instalação/configuração de pacotes |
+| **Linux Mint** | ⚠️ Pode funcionar | Baseado em Ubuntu/Debian |
+| **Pop!\_OS** | ⚠️ Pode funcionar | Baseado em Ubuntu |
+| **Fedora** | ⚠️ Pode exigir ajustes | Gerenciador de pacotes e configuração podem ser diferentes |
+| **Arch Linux** | ⚠️ Pode exigir ajustes | Instalação de pacotes e caminhos podem variar |
+| **openSUSE** | ⚠️ Pode exigir ajustes | Pacotes e configuração podem variar |
+| **Windows** | ❌ Não suportado | Implementação atual utiliza recursos específicos do Linux |
+| **macOS** | ❌ Não suportado | Implementação atual não foi desenvolvida para macOS |
+
+> **Importante:** "pode funcionar" significa que o código Python é potencialmente compatível, mas a configuração do sistema operacional, pacotes, permissões, OpenVPN e terminal podem exigir ajustes.
+
+ ## 🔧 O que pode precisar ser alterado em outras distribuições Linux
+
+ ### 1\. Gerenciador de pacotes
+
+ O projeto foi desenvolvido em Kali Linux, que utiliza o sistema de pacotes baseado em Debian.
+
+ No Kali, Debian e Ubuntu, normalmente:
+
+```
+sudo apt update
+sudo apt install <pacote>
+```
+
+ Em Fedora:
+
+```
+sudo dnf install <pacote>
+```
+
+ Em Arch Linux:
+
+```
+sudo pacman -S <pacote>
+```
+
+ Portanto, os comandos de instalação apresentados neste README são direcionados principalmente a distribuições baseadas em Debian.
+
+ ### 2\. `xfce4-terminal`
+
+ O `main.py` utiliza:
+
+```
+/usr/bin/xfce4-terminal
+```
+
+ Por isso, o `xfce4-terminal` precisa estar instalado e disponível no sistema.
+
+ Em Kali/Debian/Ubuntu:
+
+```
+sudo apt update
+sudo apt install xfce4-terminal
+```
+
+ Em Fedora:
+
+```
+sudo dnf install xfce4-terminal
+```
+
+ Em Arch Linux:
+
+```
+sudo pacman -S xfce4-terminal
+```
+
+ > Dependendo da distribuição e da instalação do usuário, o caminho do executável pode ser diferente.
+
+ ### 3\. Caminho fixo do projeto
+
+ O `main.py` atualmente possui um caminho específico:
+
+```
+f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
+```
+
+ Esse caminho foi configurado para o ambiente utilizado durante o desenvolvimento.
+
+ Se o projeto estiver em outro diretório, será necessário alterar:
+
+```
+/home/kali/Desktop/BruteForceMySql/
+```
+
+ para o caminho correspondente.
+
+ > Uma melhoria futura seria utilizar `Path(__file__)` para descobrir automaticamente o diretório do projeto e eliminar essa configuração manual.
+
+ ### 4\. OpenVPN
+
+ O gerenciamento das conexões VPN depende do **OpenVPN** e da configuração do sistema.
+
+ Em distribuições baseadas em Debian:
+
+```
+sudo apt install openvpn
+```
+
+ Em Fedora:
+
+```
+sudo dnf install openvpn
+```
+
+ Em Arch Linux:
+
+```
+sudo pacman -S openvpn
+```
+
+ Além do OpenVPN, os arquivos `.ovpn` presentes na pasta `VPNBook/` precisam estar corretamente configurados para o ambiente utilizado.
+
+ ### 5\. Permissões
+
+ O gerenciamento de conexões VPN pode exigir privilégios elevados dependendo da configuração do sistema.
+
+ Se ocorrer um erro relacionado a permissões, verifique a configuração do OpenVPN e as permissões do usuário antes de executar o programa como `root`.
+
  ## 📦 Requisitos
 
  O projeto utiliza algumas bibliotecas externas do Python.
@@ -51,7 +188,7 @@ BruteForceMySql/
 requirements.txt
 ```
 
- Conteúdo do arquivo:
+ Conteúdo:
 
 ```
 pexpect
@@ -63,24 +200,28 @@ beautifulsoup4
 
  ### Instalação das dependências Python
 
- Dentro do diretório do projeto, execute:
+ Dentro do diretório do projeto:
 
 ```
 python -m pip install -r requirements.txt
 ```
 
- ### 🖥️ Instalação do `xfce4-terminal`
+ Em sistemas nos quais `python` aponta para uma versão diferente, pode ser necessário utilizar:
+
+```
+python3 -m pip install -r requirements.txt
+```
+
+ ## 🖥️ Instalação do `xfce4-terminal`
 
  O `xfce4-terminal` não é uma biblioteca Python e, portanto, não está no `requirements.txt`.
 
- No Kali Linux, instale através do `apt`:
+ No Kali Linux:
 
 ```
 sudo apt update
 sudo apt install xfce4-terminal
 ```
-
- Depois da instalação, o projeto poderá utilizar o `xfce4-terminal` para abrir o segundo terminal.
 
  ## 🔑 Alterando a Wordlist
 
@@ -90,7 +231,7 @@ sudo apt install xfce4-terminal
 passwords.py
 ```
 
- No início do arquivo existe:
+ No início do arquivo:
 
 ```
 from pathlib import Path
@@ -143,7 +284,7 @@ i = int(input("Qual o valor inicial: "))
 
  O valor de `i` representa o **índice da entrada da wordlist** a partir do qual o programa será iniciado.
 
- Os índices começam em `0`.
+ Os índices começam em `0`:
 
 ```
 0 → primeira entrada
@@ -158,7 +299,7 @@ i = int(input("Qual o valor inicial: "))
 Qual o valor inicial: 0
 ```
 
- começa na primeira entrada da wordlist.
+ começa na primeira entrada.
 
  Já:
 
@@ -166,19 +307,19 @@ Qual o valor inicial: 0
 Qual o valor inicial: 100
 ```
 
- começa na entrada de índice `100`, que corresponde à **101ª entrada** da lista.
+ começa na entrada de índice `100`, que corresponde à **101ª entrada**.
 
- > **Importante:** `i` é um índice, portanto a primeira entrada da lista corresponde a `0`, e não a `1`.
+ > **Importante:** `i` é um índice. Portanto, a primeira entrada da lista corresponde a `0`, e não a `1`.
 
  O programa também registra o índice atual durante a execução para possibilitar a retomada da posição correspondente posteriormente.
 
  ## 🔌 Configuração da conexão
 
- Depois de definir o valor inicial, cada módulo solicita as informações necessárias para realizar sua conexão.
+ Depois de definir o valor inicial, cada módulo solicita as informações necessárias para sua conexão.
 
  ### 🔐 SSH
 
- No modo `ssh`, são solicitados:
+ No modo `ssh`:
 
 ```
 user = str(input("Qual o usuário: "))
@@ -186,48 +327,27 @@ destino = str(input("Qual o destino: "))
 port = str(input("Qual a porta: "))
 ```
 
- Os valores correspondem a:
-
  | Entrada | Descrição | Exemplo |
 | --- | --- | --- |
 | `user` | Usuário da conexão SSH | `usuario` |
 | `destino` | Host ou endereço do servidor | `servidor.exemplo.com` |
 | `port` | Porta do serviço SSH | `22` |
 
-Exemplo:
+### 🗄️ MySQL
 
-```
-Qual o valor inicial: 0
-Qual o usuário: usuario
-Qual o destino: servidor.exemplo.com
-Qual a porta: 22
-```
-
- ### 🗄️ MySQL
-
- No modo `mysql`, são solicitados:
+ No modo `mysql`:
 
 ```
 user = input("Qual o usuário: ")
 destino = input("Qual o destino: ")
 ```
 
- Os valores correspondem a:
-
  | Entrada | Descrição | Exemplo |
 | --- | --- | --- |
 | `user` | Usuário da conexão MySQL | `usuario` |
 | `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
 
-Exemplo:
-
-```
-Qual o valor inicial: 0
-Qual o usuário: usuario
-Qual o destino: servidor.exemplo.com
-```
-
- ## 🔧 Configuração do `main.py`
+## 🔧 Configuração do `main.py`
 
  O projeto deve ser iniciado **sempre pelo `main.py`**.
 
@@ -245,7 +365,7 @@ vpn.py
 python3 main.py
 ```
 
- O `main.py` apresenta o menu:
+ O `main.py` apresenta:
 
 ```
 Escolha (mysql/ssh):
@@ -256,30 +376,6 @@ Escolha (mysql/ssh):
 ```
 mysql
 ssh
-```
-
- O `main.py` então inicia o módulo correspondente.
-
- ### 📍 Caminho do projeto
-
- No `main.py`, existe um caminho utilizado para executar `mysql.py` ou `ssh.py`:
-
-```
-f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
-```
-
- Se o projeto estiver em outro diretório, altere:
-
-```
-/home/kali/Desktop/BruteForceMySql/
-```
-
- para o caminho correto.
-
- Por exemplo:
-
-```
-f"bash -c 'python3 /home/kali/Projetos/BruteForceMySql/{mode}.py; exec bash'"
 ```
 
  ### ▶️ Exemplo de execução
@@ -293,10 +389,10 @@ cd /home/kali/Desktop/BruteForceMySql
  Instale as dependências:
 
 ```
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
- Instale o terminal necessário:
+ Instale o terminal:
 
 ```
 sudo apt install xfce4-terminal
@@ -308,7 +404,7 @@ sudo apt install xfce4-terminal
 python3 main.py
 ```
 
- Selecione o modo:
+ Selecione:
 
 ```
 Escolha (mysql/ssh): ssh
@@ -364,8 +460,24 @@ vpn.py
 | `VPNBook/` | Arquivos de configuração `.ovpn` |
 | `wordlists/` | Wordlists utilizadas pelo projeto |
 
-## ⚠️ Uso autorizado
+## 🐧 Ambiente de desenvolvimento
+
+ Este projeto foi desenvolvido utilizando:
+
+ - **Sistema operacional:** Kali Linux
+- **Python:** Python 3
+- **Terminal:** XFCE Terminal
+- **VPN:** OpenVPN
+- **Automação:** Pexpect
+
+ O ambiente de desenvolvimento principal é o **Kali Linux**. Outras distribuições Linux podem exigir adaptações relacionadas a pacotes, permissões, caminhos de executáveis e configuração do OpenVPN.
+
+ ## ⚠️ Uso autorizado
 
  Este projeto foi desenvolvido para fins de **estudo, laboratório, CTF e testes de segurança autorizados**.
 
  Não utilize o programa contra sistemas, servidores ou contas de terceiros sem autorização explícita.
+
+ ## 📄 Licença
+
+ Defina aqui a licença do projeto, caso aplicável.
