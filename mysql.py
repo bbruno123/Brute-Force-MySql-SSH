@@ -13,12 +13,15 @@ i = 0
 
 i = int(input("Qual o valor inicial"))
 
+user = input("Qual o usuário")
+pass_ = input("Qual a senha")
+
 while i < len(passwords):
 
     with open("/tmp/mysql_i", "w") as f:
         f.write(str(i))
 
-    process = pexpect.spawn("mysql", ["-u", "root", "-p", "amplamoveis.com.br"], encoding="utf-8")
+    process = pexpect.spawn("mysql", ["-u", user, "-p", pass_], encoding="utf-8")
 
     process.expect("Enter password:")
     process.sendline(str(passwords[i]))
