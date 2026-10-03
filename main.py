@@ -8,6 +8,10 @@ import os
 if os.path.exists("/tmp/mysql_finded"):
     os.remove("/tmp/mysql_finded")
 
+# Remove sinais antigos
+#with open("/tmp/mysql_i", "w") as f:
+#    f.write("0")
+
 while True:
     mode = input("Escolha (mysql/ssh): ").strip().lower()
 
@@ -23,7 +27,7 @@ terminal = pexpect.spawn(
         "--disable-server",
         "--title=Segundo Terminal",
         "--command",
-        f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
+        f"bash -c 'python3 /home/kali/Desktop/BruteForce_mysql:ssh/{mode}.py; exec bash'"
     ],
     encoding="utf-8"
 )

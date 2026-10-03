@@ -1,8 +1,4 @@
-Claro. Mantive o README, mas deixei explícito que o projeto foi desenvolvido/testado no **Kali Linux**, que atualmente é voltado para **Linux**, e acrescentei uma seção explicando o que pode precisar ser adaptado em Debian, Ubuntu, Fedora, Arch e outras distribuições.
-
- README.md
-
-# BruteForceMySql
+# BruteForce\_mysql:ssh
 
  Programa para testes de autenticação em **MySQL** e **SSH**, utilizando uma wordlist configurável e gerenciamento de conexões VPN através do OpenVPN.
 
@@ -13,19 +9,13 @@ Claro. Mantive o README, mas deixei explícito que o projeto foi desenvolvido/te
  ## 📁 Estrutura do projeto
 
 ```
-BruteForceMySql/
+BruteForce_mysql:ssh/
 ├── main.py
 ├── mysql.py
 ├── passwords.py
 ├── ssh.py
 ├── vpn.py
 ├── requirements.txt
-│
-├── __pycache__/
-│   ├── passwords.cpython-314.pyc
-│   ├── Passwords.cpython-314.pyc
-│   ├── ssh.cpython-314.pyc
-│   └── vpn.cpython-314.pyc
 │
 ├── VPNBook/
 │   ├── vpnbook-ca149-tcp443.ovpn
@@ -51,9 +41,7 @@ BruteForceMySql/
 
  O projeto foi **desenvolvido e testado no Kali Linux**.
 
- A implementação atual depende de ferramentas e caminhos específicos do ambiente Linux, portanto não deve ser considerada automaticamente compatível com todas as distribuições.
-
- ### Distribuições Linux
+ A implementação atual depende de ferramentas e caminhos específicos do ambiente Linux.
 
  | Distribuição | Compatibilidade atual | Observação |
 | --- | --- | --- |
@@ -68,121 +56,13 @@ BruteForceMySql/
 | **Windows** | ❌ Não suportado | Implementação atual utiliza recursos específicos do Linux |
 | **macOS** | ❌ Não suportado | Implementação atual não foi desenvolvida para macOS |
 
-> **Importante:** "pode funcionar" significa que o código Python é potencialmente compatível, mas a configuração do sistema operacional, pacotes, permissões, OpenVPN e terminal podem exigir ajustes.
-
- ## 🔧 O que pode precisar ser alterado em outras distribuições Linux
-
- ### 1\. Gerenciador de pacotes
-
- O projeto foi desenvolvido em Kali Linux, que utiliza o sistema de pacotes baseado em Debian.
-
- No Kali, Debian e Ubuntu, normalmente:
-
-```
-sudo apt update
-sudo apt install <pacote>
-```
-
- Em Fedora:
-
-```
-sudo dnf install <pacote>
-```
-
- Em Arch Linux:
-
-```
-sudo pacman -S <pacote>
-```
-
- Portanto, os comandos de instalação apresentados neste README são direcionados principalmente a distribuições baseadas em Debian.
-
- ### 2\. `xfce4-terminal`
-
- O `main.py` utiliza:
-
-```
-/usr/bin/xfce4-terminal
-```
-
- Por isso, o `xfce4-terminal` precisa estar instalado e disponível no sistema.
-
- Em Kali/Debian/Ubuntu:
-
-```
-sudo apt update
-sudo apt install xfce4-terminal
-```
-
- Em Fedora:
-
-```
-sudo dnf install xfce4-terminal
-```
-
- Em Arch Linux:
-
-```
-sudo pacman -S xfce4-terminal
-```
-
- > Dependendo da distribuição e da instalação do usuário, o caminho do executável pode ser diferente.
-
- ### 3\. Caminho fixo do projeto
-
- O `main.py` atualmente possui um caminho específico:
-
-```
-f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
-```
-
- Esse caminho foi configurado para o ambiente utilizado durante o desenvolvimento.
-
- Se o projeto estiver em outro diretório, será necessário alterar:
-
-```
-/home/kali/Desktop/BruteForceMySql/
-```
-
- para o caminho correspondente.
-
- > Uma melhoria futura seria utilizar `Path(__file__)` para descobrir automaticamente o diretório do projeto e eliminar essa configuração manual.
-
- ### 4\. OpenVPN
-
- O gerenciamento das conexões VPN depende do **OpenVPN** e da configuração do sistema.
-
- Em distribuições baseadas em Debian:
-
-```
-sudo apt install openvpn
-```
-
- Em Fedora:
-
-```
-sudo dnf install openvpn
-```
-
- Em Arch Linux:
-
-```
-sudo pacman -S openvpn
-```
-
- Além do OpenVPN, os arquivos `.ovpn` presentes na pasta `VPNBook/` precisam estar corretamente configurados para o ambiente utilizado.
-
- ### 5\. Permissões
-
- O gerenciamento de conexões VPN pode exigir privilégios elevados dependendo da configuração do sistema.
-
- Se ocorrer um erro relacionado a permissões, verifique a configuração do OpenVPN e as permissões do usuário antes de executar o programa como `root`.
+> **Importante:** "pode funcionar" significa que o código Python é potencialmente compatível, mas a configuração do sistema operacional, pacotes, permissões, OpenVPN e terminal pode exigir ajustes.
 
  ## 📦 Requisitos
 
  O projeto utiliza algumas bibliotecas externas do Python.
 
- As dependências estão listadas no arquivo:
+ As dependências estão listadas em:
 
 ```
 requirements.txt
@@ -203,20 +83,14 @@ beautifulsoup4
  Dentro do diretório do projeto:
 
 ```
-python -m pip install -r requirements.txt
-```
-
- Em sistemas nos quais `python` aponta para uma versão diferente, pode ser necessário utilizar:
-
-```
 python3 -m pip install -r requirements.txt
 ```
 
- ## 🖥️ Instalação do `xfce4-terminal`
+ ### 🖥️ Instalação do `xfce4-terminal`
 
  O `xfce4-terminal` não é uma biblioteca Python e, portanto, não está no `requirements.txt`.
 
- No Kali Linux:
+ No Kali/Debian/Ubuntu:
 
 ```
 sudo apt update
@@ -231,7 +105,7 @@ sudo apt install xfce4-terminal
 passwords.py
 ```
 
- No início do arquivo:
+ No início do arquivo existe:
 
 ```
 from pathlib import Path
@@ -311,7 +185,44 @@ Qual o valor inicial: 100
 
  > **Importante:** `i` é um índice. Portanto, a primeira entrada da lista corresponde a `0`, e não a `1`.
 
- O programa também registra o índice atual durante a execução para possibilitar a retomada da posição correspondente posteriormente.
+ ## 💾 Verificando onde o programa parou
+
+ Durante a execução, o programa salva o índice atual no arquivo temporário:
+
+```
+/tmp/mysql_i
+```
+
+ O código responsável por isso é:
+
+```
+with open("/tmp/mysql_i", "w") as f:
+    f.write(str(i))
+```
+
+ Esse arquivo contém o **índice da última posição registrada** durante a execução.
+
+ Para verificar pelo terminal:
+
+```
+cat /tmp/mysql_i
+```
+
+ Por exemplo, se aparecer:
+
+```
+250
+```
+
+ significa que o último índice registrado foi `250`.
+
+ Você também pode verificar o arquivo diretamente com:
+
+```
+cat /tmp/mysql_i
+```
+
+ > **Importante:** o arquivo fica em `/tmp`, portanto é um arquivo temporário do sistema. Ele pode ser removido pelo sistema operacional, especialmente após reinicializações, dependendo da configuração da distribuição Linux.
 
  ## 🔌 Configuração da conexão
 
@@ -378,12 +289,32 @@ mysql
 ssh
 ```
 
+ O `main.py` então inicia o módulo correspondente.
+
+ ### 📍 Caminho do projeto
+
+ No `main.py`, existe um caminho utilizado para executar `mysql.py` ou `ssh.py`:
+
+```
+f"bash -c 'python3 /home/kali/Desktop/BruteForce_mysql:ssh/{mode}.py; exec bash'"
+```
+
+ Se o projeto estiver em outro diretório, altere:
+
+```
+/home/kali/Desktop/BruteForce_mysql:ssh/
+```
+
+ para o caminho correto.
+
+ > Uma melhoria futura seria utilizar `Path(__file__)` para descobrir automaticamente o diretório do projeto e eliminar essa configuração manual.
+
  ### ▶️ Exemplo de execução
 
  Entre no diretório do projeto:
 
 ```
-cd /home/kali/Desktop/BruteForceMySql
+cd /home/kali/Desktop/BruteForce_mysql:ssh
 ```
 
  Instale as dependências:
@@ -392,7 +323,7 @@ cd /home/kali/Desktop/BruteForceMySql
 python3 -m pip install -r requirements.txt
 ```
 
- Instale o terminal:
+ Instale o terminal necessário:
 
 ```
 sudo apt install xfce4-terminal
@@ -470,14 +401,10 @@ vpn.py
 - **VPN:** OpenVPN
 - **Automação:** Pexpect
 
- O ambiente de desenvolvimento principal é o **Kali Linux**. Outras distribuições Linux podem exigir adaptações relacionadas a pacotes, permissões, caminhos de executáveis e configuração do OpenVPN.
+ O ambiente principal de desenvolvimento é o **Kali Linux**. Outras distribuições Linux podem exigir adaptações relacionadas a pacotes, permissões, caminhos de executáveis e configuração do OpenVPN.
 
  ## ⚠️ Uso autorizado
 
  Este projeto foi desenvolvido para fins de **estudo, laboratório, CTF e testes de segurança autorizados**.
 
  Não utilize o programa contra sistemas, servidores ou contas de terceiros sem autorização explícita.
-
- ## 📄 Licença
-
- Defina aqui a licença do projeto, caso aplicável.
