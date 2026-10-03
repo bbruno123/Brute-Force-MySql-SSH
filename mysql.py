@@ -30,10 +30,6 @@ while i < len(passwords):
     result = process.expect(["MariaDB", "mysql", "ERROR 1698", pexpect.EOF])
 
     if result == 0 or result == 1:
-        process = pexpect.spawn("protonvpn", ["disconnect"], encoding="utf-8")
-        process.logfile = sys.stdout
-        process.expect(pexpect.EOF)
-
         password = passwords[i]
         print(password)
 
