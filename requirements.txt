@@ -1,0 +1,3 @@
+pexpect
+requests
+beautifulsoup4
