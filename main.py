@@ -8,6 +8,14 @@ import os
 if os.path.exists("/tmp/mysql_finded"):
     os.remove("/tmp/mysql_finded")
 
+while True:
+    mode = input("Escolha (mysql/ssh): ").strip().lower()
+
+    if mode in ("mysql", "ssh"):
+        break
+
+    print("Opção inválida. Digite mysql ou ssh.")
+
 # Abre o segundo terminal
 terminal = pexpect.spawn(
     "/usr/bin/xfce4-terminal",
@@ -15,7 +23,7 @@ terminal = pexpect.spawn(
         "--disable-server",
         "--title=Segundo Terminal",
         "--command",
-        "bash -c 'python3 /home/kali/Desktop/BruteForceMySql/mysql.py; exec bash'"
+        f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
     ],
     encoding="utf-8"
 )
