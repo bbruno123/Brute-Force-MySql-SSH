@@ -73,12 +73,12 @@ while i < len(passwords):
         continue
 
     if i == next_:
-        time.sleep(random.randint(30, 180))
+        time.sleep(random.randint(25, 40))
         next_ += random.randint(30, 45)
 
     process.interact()
 
-    delay = random.randint(1, 15)
+    delay = random.randint(1, 5)
     time.sleep(delay)
 
     i += 1

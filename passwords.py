@@ -1,7 +1,7 @@
 from pathlib import Path
 
 folder = Path(__file__).parent
-file = folder / "default-passwords.txt"
+file = folder / "wordlists" / "100k-most-used-passwords-NCSC_.txt"
 
 passwords_ = []
 
