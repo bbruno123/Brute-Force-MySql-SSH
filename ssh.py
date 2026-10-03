@@ -99,13 +99,14 @@ while i < len(passwords):
     if result != SHELL:
         process.close()
         i += 1
-        continue
-    
-    if i == next5:
-        openvpn_enter.close()
-        openvpn_enter = vpn.openvpn_enter_()
 
-        next5 += 5
+        if i >= next5:
+            openvpn_enter.close()
+            openvpn_enter = vpn.openvpn_enter_()
+            
+            next5 += 5
+
+        continue
 
     if i == next_:
         time.sleep(random.randint(30, 180))
