@@ -11,10 +11,10 @@ openvpn_enter = vpn.openvpn_enter_()
 finded = False
 i = 0
 
-i = int(input("Qual o valor inicial"))
+i = int(input("Qual o valor inicial: "))
 
-user = input("Qual o usuário")
-pass_ = input("Qual a senha")
+user = input("Qual o usuário: ")
+destino = input("Qual o destino: ")
 
 while i < len(passwords):
 
