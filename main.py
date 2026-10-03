@@ -18,7 +18,7 @@ terminal = pexpect.spawn(
         "--disable-server",
         "--title=Segundo Terminal",
         "--command",
-        "bash -c 'python3 /home/kali/Desktop/BruteForce/mysql.py; exec bash'"
+        "bash -c 'python3 /home/kali/Desktop/BruteForceMySql/mysql.py; exec bash'"
     ],
     encoding="utf-8"
 )
