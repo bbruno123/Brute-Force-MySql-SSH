@@ -1,7 +1,3 @@
-Sim. Para o GitHub reconhecer a estrutura e a formatação, copie **todo o conteúdo abaixo** diretamente para o `README.md`:
-
- README.md
-
 # BruteForceMySql
 
  Programa para testes de autenticação em **MySQL** e **SSH**, utilizando uma wordlist configurável e gerenciamento de conexões VPN através do OpenVPN.
@@ -17,6 +13,7 @@ BruteForceMySql/
 ├── passwords.py
 ├── ssh.py
 ├── vpn.py
+├── requirements.txt
 │
 ├── __pycache__/
 │   ├── passwords.cpython-314.pyc
@@ -42,7 +39,48 @@ BruteForceMySql/
     └── default-passwords.txt
 ```
 
- > **Nota:** recomendo utilizar `wordlists` em vez de `wordists`, pois é o nome convencional para esse tipo de diretório.
+ > **Nota:** recomenda-se utilizar `wordlists` em vez de `wordists`, pois esse é o nome convencional para esse tipo de diretório.
+
+ ## 📦 Requisitos
+
+ O projeto utiliza algumas bibliotecas externas do Python.
+
+ As dependências estão listadas no arquivo:
+
+```
+requirements.txt
+```
+
+ Conteúdo do arquivo:
+
+```
+pexpect
+requests
+beautifulsoup4
+```
+
+ As bibliotecas `threading`, `time`, `os`, `random` e `sys` fazem parte da biblioteca padrão do Python e não precisam ser instaladas.
+
+ ### Instalação das dependências Python
+
+ Dentro do diretório do projeto, execute:
+
+```
+python -m pip install -r requirements.txt
+```
+
+ ### 🖥️ Instalação do `xfce4-terminal`
+
+ O `xfce4-terminal` não é uma biblioteca Python e, portanto, não está no `requirements.txt`.
+
+ No Kali Linux, instale através do `apt`:
+
+```
+sudo apt update
+sudo apt install xfce4-terminal
+```
+
+ Depois da instalação, o projeto poderá utilizar o `xfce4-terminal` para abrir o segundo terminal.
 
  ## 🔑 Alterando a Wordlist
 
@@ -95,7 +133,134 @@ wordlists/
 file = folder / "wordlists" / "minha-wordlist.txt"
 ```
 
+ ## 🔢 Valor inicial da Wordlist
+
+ Os módulos `mysql.py` e `ssh.py` solicitam o valor inicial:
+
+```
+i = int(input("Qual o valor inicial: "))
+```
+
+ O valor de `i` representa o **índice da entrada da wordlist** a partir do qual o programa será iniciado.
+
+ Os índices começam em `0`.
+
+```
+0 → primeira entrada
+1 → segunda entrada
+2 → terceira entrada
+3 → quarta entrada
+```
+
+ Por exemplo:
+
+```
+Qual o valor inicial: 0
+```
+
+ começa na primeira entrada da wordlist.
+
+ Já:
+
+```
+Qual o valor inicial: 100
+```
+
+ começa na entrada de índice `100`, que corresponde à **101ª entrada** da lista.
+
+ > **Importante:** `i` é um índice, portanto a primeira entrada da lista corresponde a `0`, e não a `1`.
+
+ O programa também registra o índice atual durante a execução para possibilitar a retomada da posição correspondente posteriormente.
+
+ ## 🔌 Configuração da conexão
+
+ Depois de definir o valor inicial, cada módulo solicita as informações necessárias para realizar sua conexão.
+
+ ### 🔐 SSH
+
+ No modo `ssh`, são solicitados:
+
+```
+user = str(input("Qual o usuário: "))
+destino = str(input("Qual o destino: "))
+port = str(input("Qual a porta: "))
+```
+
+ Os valores correspondem a:
+
+ | Entrada | Descrição | Exemplo |
+| --- | --- | --- |
+| `user` | Usuário da conexão SSH | `usuario` |
+| `destino` | Host ou endereço do servidor | `servidor.exemplo.com` |
+| `port` | Porta do serviço SSH | `22` |
+
+Exemplo:
+
+```
+Qual o valor inicial: 0
+Qual o usuário: usuario
+Qual o destino: servidor.exemplo.com
+Qual a porta: 22
+```
+
+ ### 🗄️ MySQL
+
+ No modo `mysql`, são solicitados:
+
+```
+user = input("Qual o usuário: ")
+destino = input("Qual o destino: ")
+```
+
+ Os valores correspondem a:
+
+ | Entrada | Descrição | Exemplo |
+| --- | --- | --- |
+| `user` | Usuário da conexão MySQL | `usuario` |
+| `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
+
+Exemplo:
+
+```
+Qual o valor inicial: 0
+Qual o usuário: usuario
+Qual o destino: servidor.exemplo.com
+```
+
  ## 🔧 Configuração do `main.py`
+
+ O projeto deve ser iniciado **sempre pelo `main.py`**.
+
+ Não execute diretamente:
+
+```
+mysql.py
+ssh.py
+vpn.py
+```
+
+ Para iniciar:
+
+```
+python3 main.py
+```
+
+ O `main.py` apresenta o menu:
+
+```
+Escolha (mysql/ssh):
+```
+
+ As opções disponíveis são:
+
+```
+mysql
+ssh
+```
+
+ O `main.py` então inicia o módulo correspondente.
+
+ ### 📍 Caminho do projeto
 
  No `main.py`, existe um caminho utilizado para executar `mysql.py` ou `ssh.py`:
 
@@ -103,19 +268,59 @@ file = folder / "wordlists" / "minha-wordlist.txt"
 f"bash -c 'python3 /home/kali/Desktop/BruteForceMySql/{mode}.py; exec bash'"
 ```
 
- Se o projeto estiver em outro local, altere:
+ Se o projeto estiver em outro diretório, altere:
 
 ```
 /home/kali/Desktop/BruteForceMySql/
 ```
 
- para o diretório correto.
+ para o caminho correto.
 
  Por exemplo:
 
 ```
 f"bash -c 'python3 /home/kali/Projetos/BruteForceMySql/{mode}.py; exec bash'"
 ```
+
+ ### ▶️ Exemplo de execução
+
+ Entre no diretório do projeto:
+
+```
+cd /home/kali/Desktop/BruteForceMySql
+```
+
+ Instale as dependências:
+
+```
+python -m pip install -r requirements.txt
+```
+
+ Instale o terminal necessário:
+
+```
+sudo apt install xfce4-terminal
+```
+
+ Depois execute:
+
+```
+python3 main.py
+```
+
+ Selecione o modo:
+
+```
+Escolha (mysql/ssh): ssh
+```
+
+ ou:
+
+```
+Escolha (mysql/ssh): mysql
+```
+
+ > **Importante:** `main.py` é o ponto de entrada do projeto e deve ser utilizado para iniciar a aplicação.
 
  ## 🔐 VPN
 
@@ -146,36 +351,16 @@ vpnbook-us178-tcp443.ovpn
 vpn.py
 ```
 
- ## ▶️ Execução
-
- Para iniciar o programa:
-
-```
-python3 main.py
-```
-
- O programa solicitará o modo de operação:
-
-```
-Escolha (mysql/ssh):
-```
-
- As opções disponíveis são:
-
-```
-mysql
-ssh
-```
-
  ## 📝 Arquivos principais
 
  | Arquivo | Função |
 | --- | --- |
-| `main.py` | Programa principal e seleção do modo |
+| `main.py` | Programa principal e ponto de entrada |
 | `mysql.py` | Módulo relacionado ao MySQL |
 | `ssh.py` | Módulo relacionado ao SSH |
 | `passwords.py` | Carregamento da wordlist |
 | `vpn.py` | Gerenciamento das conexões VPN |
+| `requirements.txt` | Dependências externas do Python |
 | `VPNBook/` | Arquivos de configuração `.ovpn` |
 | `wordlists/` | Wordlists utilizadas pelo projeto |
 
@@ -184,7 +369,3 @@ ssh
  Este projeto foi desenvolvido para fins de **estudo, laboratório, CTF e testes de segurança autorizados**.
 
  Não utilize o programa contra sistemas, servidores ou contas de terceiros sem autorização explícita.
-
- ## 📄 Licença
-
- Defina aqui a licença do projeto, caso aplicável.
