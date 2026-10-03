@@ -17,6 +17,8 @@ i = int(input("Qual o valor inicial: "))
 user = input("Qual o usuário: ")
 destino = input("Qual o destino: ")
 
+next_ = random.randint(30, 45)
+
 while i < len(passwords):
 
     with open("/tmp/mysql_i", "w") as f:
@@ -44,8 +46,9 @@ while i < len(passwords):
         openvpn_enter.close()
         openvpn_enter = vpn.openvpn_enter_()
 
-    if i % random.randint(30, 45):
+    if i == next_:
         time.sleep(random.randint(30, 180))
+        next_ += random.randint(30, 45)
 
     process.interact()
 
