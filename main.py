@@ -4,9 +4,6 @@ import threading
 import time
 import os
 
-# Conecta à VPN
-process = vpn.openvpn_enter_()
-
 # Remove sinais antigos
 if os.path.exists("/tmp/mysql_finded"):
     os.remove("/tmp/mysql_finded")
@@ -32,7 +29,7 @@ def finded_():
             print("mysql.py informou: finded = True")
 
             # Fecha somente a VPN
-            process.close()
+            vpn.openvpn_enter_().close()
 
             break
 

@@ -9,6 +9,7 @@ passwords = passwords.passwords_
 openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
+
 i = 0
 
 i = int(input("Qual o valor inicial: "))
@@ -46,6 +47,9 @@ while i < len(passwords):
     if i % 5 == 0:
         openvpn_enter.close()
         openvpn_enter = vpn.openvpn_enter_()
+
+    if i % random.randint(30, 45):
+        time.sleep(random.randint(30, 180))
 
     process.interact()
 
