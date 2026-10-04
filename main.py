@@ -5,12 +5,8 @@ import time
 import os
 
 # Remove sinais antigos
-if os.path.exists("/tmp/mysql_finded"):
-    os.remove("/tmp/mysql_finded")
-
-# Remove sinais antigos
-#with open("/tmp/mysql_i", "w") as f:
-#    f.write("0")
+if os.path.exists("/tmp/manager"):
+    os.remove("/tmp/manager")
 
 while True:
     mode = input("Escolha (mysql/ssh): ").strip().lower()
@@ -19,6 +15,13 @@ while True:
         break
 
     print("Opção inválida. Digite mysql ou ssh.")
+
+with open("/tmp/manager", "w") as f:
+    f.write(f"{mode}\n")
+    f.write("0\n")  # Inicializa o valor de i como 0
+    f.write("0\n")  # Inicializa o valor de j como 0
+    f.write("False\n")  # Inicializa o valor de finded como False
+    f.write("Tudo certo!\n")  # Inicializa o valor de status como uma mensagem padrão
 
 # Abre o segundo terminal
 terminal = pexpect.spawn(
@@ -37,8 +40,12 @@ print("Segundo terminal aberto.")
 
 def finded_():
     while True:
-        if os.path.exists("/tmp/mysql_finded"):
-            print("mysql.py informou: finded = True")
+        if os.path.exists("/tmp/manager"):
+            with open("/tmp/manager", "r") as f:
+                lines = f.readlines()
+
+            if lines[3].strip() == "True":
+                print("mysql.py informou: finded = True")
 
             # Fecha somente a VPN
             vpn.openvpn_enter_().close()
@@ -51,7 +58,6 @@ def finded_():
 thread = threading.Thread(target=finded_, daemon=True)
 thread.start()
 
-
 try:
     # Fica esperando o segundo terminal fechar
     terminal.wait()
@@ -59,13 +65,13 @@ try:
     # Se chegou aqui, o terminal foi encerrado
     print("\nSegundo terminal foi fechado.")
 
-    if os.path.exists("/tmp/mysql_i"):
-        with open("/tmp/mysql_i", "r") as f:
+    if os.path.exists("/tmp/manager"):
+        with open("/tmp/manager", "r") as f:
             i = f.read().strip()
 
         print(f"i atual: {i}")
     else:
-        print("Arquivo /tmp/mysql_i não encontrado.")
+        print("Arquivo /tmp/manager não encontrado.")
 
 except KeyboardInterrupt:
     print("\nmain.py interrompido.")

