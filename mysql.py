@@ -61,6 +61,13 @@ while i < len(passwords):
     elif result == TIMEOUT:
         print("Tempo limite aguardando a resposta do MySQL.")
 
+    if i == next_:
+        time.sleep(random.randint(15, 20))
+        next_ += random.randint(35, 55)
+
+    delay = random.randint(1, 3)
+    time.sleep(delay)
+
     if result in (LOGIN_DENIED, END, TIMEOUT):
         process.close()
         i += 1
@@ -71,16 +78,5 @@ while i < len(passwords):
             next5 += 5
 
         continue
-
-    if i == next_:
-        time.sleep(random.randint(25, 40))
-        next_ += random.randint(30, 45)
-
-    process.interact()
-
-    delay = random.randint(1, 5)
-    time.sleep(delay)
-
-    i += 1
 
 openvpn_enter.close()
