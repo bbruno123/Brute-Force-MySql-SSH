@@ -23,8 +23,6 @@ for tag in soup.find_all("code"):
 if openvpn_password is None:
     raise RuntimeError("Não foi possível encontrar a senha do OpenVPN.")
 
-#print("Senha:", openvpn_password)
-
 vpn_files = [
     "vpnbook-ca149-tcp443.ovpn",
     "vpnbook-fr200-tcp443.ovpn",

