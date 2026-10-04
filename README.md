@@ -30,12 +30,17 @@ BruteForce_mysql:ssh/
 │   └── vpnbook-us178-tcp443.ovpn
 │
 └── wordlists/
-    ├── 100k-most-used-passwords-NCSC_.txt
-    ├── 10k-most-common_.txt
-    └── default-passwords.txt
+    ├── passwords/
+    │   ├── 100k-most-used-passwords-NCSC_.txt
+    │   ├── 10k-most-common_.txt
+    │   └── default-passwords_.txt
+    │
+    └── users/
+        ├── top-usernames-shortlist.txt
+        └── xato-net-10-million-usernames.txt
 ```
 
- > **Nota:** recomenda-se utilizar `wordlists` em vez de `wordists`, pois esse é o nome convencional para esse tipo de diretório.
+ > **Nota:** as wordlists são separadas nas pastas `wordlists/passwords/` e `wordlists/users/`.
 
  ## 🐧 Compatibilidade com Linux
 
@@ -111,7 +116,7 @@ passwords.py
 from pathlib import Path
 
 folder = Path(__file__).parent
-file = folder / "wordlists" / "100k-most-used-passwords-NCSC_.txt"
+file = folder / "wordlists" / "passwords" / "100k-most-used-passwords-NCSC_.txt"
 ```
 
  Para utilizar outra wordlist, altere apenas o nome do arquivo.
@@ -119,27 +124,28 @@ file = folder / "wordlists" / "100k-most-used-passwords-NCSC_.txt"
  Por exemplo:
 
 ```
-file = folder / "wordlists" / "10k-most-common_.txt"
+file = folder / "wordlists" / "passwords" / "10k-most-common_.txt"
 ```
 
  ou:
 
 ```
-file = folder / "wordlists" / "default-passwords.txt"
+file = folder / "wordlists" / "passwords" / "default-passwords_.txt"
 ```
 
  ### ➕ Adicionando uma nova Wordlist
 
- Coloque o arquivo `.txt` dentro da pasta `wordlists/`.
+ Coloque o arquivo `.txt` dentro da pasta `wordlists/passwords/`.
 
  Exemplo:
 
 ```
 wordlists/
-├── 100k-most-used-passwords-NCSC_.txt
-├── 10k-most-common_.txt
-├── default-passwords.txt
-└── minha-wordlist.txt
+└── passwords/
+    ├── 100k-most-used-passwords-NCSC_.txt
+    ├── 10k-most-common_.txt
+    ├── default-passwords_.txt
+    └── minha-wordlist.txt
 ```
 
  Depois, altere `passwords.py`:
@@ -185,44 +191,41 @@ Qual o valor inicial: 100
 
  > **Importante:** `i` é um índice. Portanto, a primeira entrada da lista corresponde a `0`, e não a `1`.
 
- ## 💾 Verificando onde o programa parou
+ ## 💾 Acompanhando o status
 
- Durante a execução, o programa salva o índice atual no arquivo temporário:
-
-```
-/tmp/mysql_i
-```
-
- O código responsável por isso é:
+ Durante a execução, o programa salva o estado atual no arquivo temporário:
 
 ```
-with open("/tmp/mysql_i", "w") as f:
-    f.write(str(i))
+/tmp/status
 ```
 
- Esse arquivo contém o **índice da última posição registrada** durante a execução.
+ O arquivo possui cinco linhas:
 
- Para verificar pelo terminal:
+ | Linha | Conteúdo |
+ | --- | --- |
+ | 1 | Modo atual: `mysql` ou `ssh` |
+ | 2 | Índice atual do usuário |
+ | 3 | Índice atual da senha |
+ | 4 | Indica se uma combinação foi encontrada: `True` ou `False` |
+ | 5 | Mensagem atual do programa |
 
-```
-cat /tmp/mysql_i
-```
-
- Por exemplo, se aparecer:
-
-```
-250
-```
-
- significa que o último índice registrado foi `250`.
-
- Você também pode verificar o arquivo diretamente com:
+ Para verificar o status pelo terminal:
 
 ```
-cat /tmp/mysql_i
+cat /tmp/status
 ```
 
- > **Importante:** o arquivo fica em `/tmp`, portanto é um arquivo temporário do sistema. Ele pode ser removido pelo sistema operacional, especialmente após reinicializações, dependendo da configuração da distribuição Linux.
+ O arquivo é atualizado durante a execução. As atualizações são feitas por meio de um arquivo temporário, reduzindo o risco de o `main.py` ler o status enquanto ele ainda está sendo gravado.
+
+ Mensagens possíveis na última linha incluem:
+
+```
+Tudo certo!
+Nenhuma combinação encontrada
+Muitas tentativas falhadas. Arquivo encerrado
+```
+
+ > **Importante:** o arquivo fica em `/tmp`, portanto é temporário e pode ser removido pelo sistema operacional, especialmente após reinicializações.
 
  ## 🔌 Configuração da conexão
 
@@ -258,6 +261,57 @@ destino = input("Qual o destino: ")
 | `user` | Usuário da conexão MySQL | `usuario` |
 | `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
 
+### 🔎 Mensagens reconhecidas pelo MySQL
+
+O módulo `mysql.py` reconhece prompts de senha em inglês e português:
+
+```
+Enter password:
+Digite a senha:
+```
+
+Depois do envio da senha, o programa reconhece mensagens de sucesso em inglês e português:
+
+```
+Welcome to the MariaDB monitor
+Welcome to the MySQL monitor
+Bem-vindo ao monitor do MariaDB
+Bem-vindo ao monitor do MySQL
+```
+
+Também é reconhecido o prompt interativo do banco, por exemplo:
+
+```
+mysql>
+MariaDB [(none)]>
+```
+
+Os erros de autenticação são identificados pelos códigos:
+
+```
+ERROR 1698
+ERROR 1045
+```
+
+O código `1045` normalmente indica que o acesso foi negado para o usuário informado.
+
+### 🔎 Mensagens reconhecidas pelo SSH
+
+O módulo `ssh.py` reconhece prompts de senha em inglês e português:
+
+```
+Password:
+Senha:
+```
+
+Depois de uma autenticação bem-sucedida, são aceitos prompts de shell de usuário comum e de administrador, incluindo formatos como:
+
+```
+usuario@servidor:~$
+usuario@servidor:/home/usuario$
+root@servidor:~#
+```
+
 ## 🔧 Configuração do `main.py`
 
  O projeto deve ser iniciado **sempre pelo `main.py`**.
@@ -291,23 +345,9 @@ ssh
 
  O `main.py` então inicia o módulo correspondente.
 
- ### 📍 Caminho do projeto
+ ### 📍 Diretório do projeto
 
- No `main.py`, existe um caminho utilizado para executar `mysql.py` ou `ssh.py`:
-
-```
-f"bash -c 'python3 /home/kali/Desktop/BruteForce_mysql:ssh/{mode}.py; exec bash'"
-```
-
- Se o projeto estiver em outro diretório, altere:
-
-```
-/home/kali/Desktop/BruteForce_mysql:ssh/
-```
-
- para o caminho correto.
-
- > Uma melhoria futura seria utilizar `Path(__file__)` para descobrir automaticamente o diretório do projeto e eliminar essa configuração manual.
+ O diretório dos módulos é obtido a partir da localização do próprio `main.py`. Dessa forma, o projeto pode ser movido para outro diretório sem precisar alterar manualmente um caminho fixo no código.
 
  ### ▶️ Exemplo de execução
 
@@ -378,6 +418,16 @@ vpnbook-us178-tcp443.ovpn
 vpn.py
 ```
 
+ A consulta da senha do OpenVPN é feita somente quando `openvpn_enter_()` é chamado. Importar o módulo `vpn.py` não inicia a conexão por si só.
+
+ O caminho dos arquivos `.ovpn` é calculado a partir da pasta do projeto, portanto a execução não depende da pasta atual do terminal.
+
+ Em caso de falha, o programa tenta conectar até três vezes. Depois disso, informa:
+
+```
+Não foi possível conectar à VPN após 3 tentativas.
+```
+
  ## 📝 Arquivos principais
 
  | Arquivo | Função |
@@ -389,7 +439,8 @@ vpn.py
 | `vpn.py` | Gerenciamento das conexões VPN |
 | `requirements.txt` | Dependências externas do Python |
 | `VPNBook/` | Arquivos de configuração `.ovpn` |
-| `wordlists/` | Wordlists utilizadas pelo projeto |
+| `wordlists/passwords/` | Wordlists de senhas utilizadas pelo projeto |
+| `wordlists/users/` | Wordlists de usuários utilizadas pelo projeto |
 
 ## 🐧 Ambiente de desenvolvimento
 

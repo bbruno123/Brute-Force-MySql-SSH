@@ -1,27 +1,9 @@
 import pexpect
 import random
 import sys
+from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
-
-url = "https://www.vpnbook.com/pt/freevpn/openvpn"
-
-response = requests.get(url, timeout=10)
-response.raise_for_status()
-
-soup = BeautifulSoup(response.text, "html.parser")
-
-openvpn_password = None
-
-for tag in soup.find_all("code"):
-    texto = tag.get_text(strip=True)
-
-    if 6 <= len(texto) <= 20 and texto != "vpnbook":
-        openvpn_password = texto
-        break
-
-if openvpn_password is None:
-    raise RuntimeError("Não foi possível encontrar a senha do OpenVPN.")
 
 vpn_files = [
     "vpnbook-ca149-tcp443.ovpn",
@@ -37,8 +19,26 @@ vpn_files = [
 ]
 
 def openvpn_enter_():
+    response = requests.get(
+        "https://www.vpnbook.com/pt/freevpn/openvpn",
+        timeout=10,
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    openvpn_password = next(
+        (
+            tag.get_text(strip=True)
+            for tag in soup.find_all("code")
+            if 6 <= len(tag.get_text(strip=True)) <= 20
+            and tag.get_text(strip=True) != "vpnbook"
+        ),
+        None,
+    )
+    if openvpn_password is None:
+        raise RuntimeError("Não foi possível encontrar a senha do OpenVPN.")
 
-    while True:
+    project_dir = Path(__file__).resolve().parent
+    for _ in range(3):
 
         vpn_file = random.choice(vpn_files)
 
@@ -49,7 +49,7 @@ def openvpn_enter_():
             [
                 "openvpn",
                 "--config",
-                f"VPNBook/{vpn_file}"
+                str(project_dir / "VPNBook" / vpn_file)
             ],
             encoding="utf-8",
             timeout=30
@@ -79,3 +79,5 @@ def openvpn_enter_():
             print("\nTimeout. Tentando outra VPN...")
             process.close()
             continue
+
+    raise RuntimeError("Não foi possível conectar à VPN após 3 tentativas.")
