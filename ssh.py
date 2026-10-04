@@ -131,7 +131,7 @@ while i < len(usersl):
             time.sleep(random.randint(15, 20))
             next_ += random.randint(35, 55)
 
-        delay = random.randint(1, 3)
+        delay = random.randint(1, 10)
         time.sleep(delay)
 
         if result in (END, TIMEOUT):
