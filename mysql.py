@@ -10,6 +10,7 @@ passwordsl = passwords.load_passwords()
 usersl = users.load_users()
 STATUS_FILE = Path(__file__).resolve().parent / "status.txt"
 
+vpn_vibe_coded.prepare_vpn_configs()
 openvpn_enter = vpn_vibe_coded.openvpn_enter_()
 
 finded = False
@@ -59,8 +60,6 @@ j = int(input("Qual o valor inicial da senha: "))
 host = input("Qual o destino: ")
 port = input("Qual a porta (padrão: 3306): ")
 update_status(7, host)
-
-vpn_vibe_coded.prepare_vpn_configs()
 
 next_ = random.randint(30, 45)
 next5 = 5

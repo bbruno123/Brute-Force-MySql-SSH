@@ -426,11 +426,7 @@ vpn_vibe_coded.py
 
  A conexão pode apresentar timeouts quando o servidor VPN escolhido está distante do destino ou apresenta alta latência, perda de pacotes ou uma rota instável. Durante a execução, `mysql.py` e `ssh.py` reconectam após falhas consecutivas e também trocam periodicamente de configuração.
 
- Em caso de falha, `openvpn_enter_()` tenta cada configuração aprovada, repetindo cada uma até três vezes. Depois disso, informa:
-
-```
-Não foi possível conectar após testar as configurações aprovadas.
-```
+ Em caso de falha, `openvpn_enter_()` tenta cada configuração aprovada, repetindo cada uma até três vezes. Se todas falharem, as configurações são removidas do cache e o programa inicia uma nova rodada de download e validação antes de tentar novamente. O processo continua até uma configuração estabelecer o túnel ou até ocorrer um erro explícito durante a atualização das configurações.
 
  ## 📝 Arquivos principais
 

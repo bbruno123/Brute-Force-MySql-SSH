@@ -25,7 +25,7 @@ REQUEST_TIMEOUT = 60
 MAX_PING_MS = 500
 MIN_VALID_CONFIGS = 3
 MAX_DOWNLOAD_CANDIDATES = 35
-PING_COUNT = 5
+PING_COUNT = 20
 PING_TIMEOUT_SECONDS = 3
 STABILITY_SECONDS = 5
 MAX_PACKET_LOSS_PERCENT = 1.0
@@ -719,51 +719,51 @@ def prepare_vpn_configs():
 
 
 def openvpn_enter_():
-    """Conecta aleatoriamente usando configurações aprovadas no cache."""
-    status = _load_status()
-    approved = _approved_cached_configs()
+    """Conecta usando o cache e baixa novas configurações quando necessário."""
+    while True:
+        status = _load_status()
+        approved = _approved_cached_configs()
+        if not approved:
+            print("Nenhuma configuração aprovada disponível; iniciando nova rodada.")
+            prepare_vpn_configs()
+            continue
 
-    if not approved:
-        raise RuntimeError(
-            "Nenhuma configuração VPN aprovada está disponível. "
-            "Execute update_vpn_configs() primeiro."
-        )
-
-    remaining = approved[:]
-    print(f"{len(remaining)} configuração(ões) aprovadas disponíveis.")
-    while remaining:
-        config_path = random.choice(remaining)
-        remaining.remove(config_path)
-        print(
-            f"\nConfiguração escolhida aleatoriamente: {config_path.name} "
-            f"(configuração {len(approved) - len(remaining)}/{len(approved)}; "
-            "máximo de 3 tentativas)"
-        )
-
-        for attempt in range(1, 4):
-            print(f"Tentativa {attempt}/3: {config_path.name}")
-            try:
-                process = _connect(config_path)
-            except OSError as error:
-                print(f"Falha ao iniciar o OpenVPN: {error}")
-                process = None
-            if process is not None:
-                return process
-            if attempt < 3:
-                print("Servidor indisponível. Repetindo esta configuração...")
-
-        if config_path.exists():
-            _discard_cached_config(
-                config_path,
-                status,
-                "não foi possível estabelecer o túnel",
+        remaining = approved[:]
+        print(f"{len(remaining)} configuração(ões) aprovadas disponíveis.")
+        while remaining:
+            config_path = random.choice(remaining)
+            remaining.remove(config_path)
+            print(
+                f"\nConfiguração escolhida aleatoriamente: {config_path.name} "
+                f"(configuração {len(approved) - len(remaining)}/{len(approved)}; "
+                "máximo de 3 tentativas)"
             )
-        print("Limite de 3 tentativas atingido. Escolhendo outra configuração...")
 
-    raise RuntimeError(
-        f"Não foi possível conectar após testar as {len(approved)} "
-        "configurações aprovadas, com até 3 tentativas por configuração."
-    )
+            for attempt in range(1, 4):
+                print(f"Tentativa {attempt}/3: {config_path.name}")
+                try:
+                    process = _connect(config_path)
+                except OSError as error:
+                    print(f"Falha ao iniciar o OpenVPN: {error}")
+                    process = None
+                if process is not None:
+                    return process
+                if attempt < 3:
+                    print("Servidor indisponível. Repetindo esta configuração...")
+
+            if config_path.exists():
+                _discard_cached_config(
+                    config_path,
+                    status,
+                    "não foi possível estabelecer o túnel",
+                )
+            print("Limite de 3 tentativas atingido. Escolhendo outra configuração...")
+
+        print(
+            "Todas as configurações aprovadas falharam; "
+            "baixando e validando novas configurações."
+        )
+        prepare_vpn_configs()
 
 
 def connect_with_cached_configs():
