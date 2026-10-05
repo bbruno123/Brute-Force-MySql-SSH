@@ -772,5 +772,5 @@ def connect_with_cached_configs():
     return openvpn_enter_()
 
 
-if __name__ == "__main__":
-    prepare_vpn_configs()
+#if __name__ == "__main__":
+#    prepare_vpn_configs()
