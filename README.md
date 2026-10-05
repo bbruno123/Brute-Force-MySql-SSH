@@ -365,7 +365,7 @@ Escolha (mysql/ssh): mysql
 
  ## 🤖 Autoria e recursos adicionais identificados
 
- `vpn_vibe_coded.py` foi feito com auxílio de inteligência artificial. O restante do projeto foi desenvolvido por mim. Esta declaração se refere à autoria dos arquivos e não significa que todos os comportamentos abaixo existiam desde a primeira versão.
+ `vpn_vibe_coded.py` e este `README.md` foram feitos com auxílio de inteligência artificial. O restante do projeto foi desenvolvido por mim. Esta declaração se refere à autoria dos arquivos e não significa que todos os comportamentos abaixo existiam desde a primeira versão.
 
  Durante a leitura do código atual, além do fluxo básico de testar combinações de usuário e senha, foram identificados estes recursos adicionais:
 
@@ -383,6 +383,14 @@ Escolha (mysql/ssh): mysql
  - ordenação das VPNs pela estabilidade medida e escolha aleatória entre as configurações aprovadas.
 
  Essa lista é uma descrição do que está implementado no estado atual do código; não é uma reconstrução histórica precisa de quando cada item foi adicionado.
+
+ ### Queda da VPN durante a execução
+
+ Se a VPN cair enquanto `mysql.py` ou `ssh.py` estiver rodando, o programa normalmente identifica a falha como `timeout` ou encerramento da conexão (`EOF`). A tentativa atual é perdida, mas o fluxo continua tentando as próximas combinações.
+
+ Depois de 10 falhas consecutivas desse tipo, o programa encerra a conexão VPN antiga e tenta conectar usando outra configuração aprovada. Ele também pode trocar de configuração periodicamente durante a execução.
+
+ Essa recuperação não é garantida em todos os casos. O programa pode ser encerrado com erro se nenhuma configuração VPN aprovada estiver disponível ou se todas as tentativas de reconexão falharem. A queda da VPN também não é monitorada por um processo separado: ela só é percebida quando uma tentativa MySQL ou SSH deixa de responder ou é encerrada.
 
  ## 🔐 VPN
 
