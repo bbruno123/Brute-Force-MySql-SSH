@@ -20,7 +20,7 @@ import requests
 
 API_URL = "https://www.vpngate.net/api/iphone/"
 VPN_DIRECTORY = Path(__file__).resolve().parent / "ovpn_dinamics"
-STATUS_FILE = Path("/tmp/vpn_status.json")
+STATUS_FILE = Path(__file__).resolve().parent / "vpn_status.json"
 REQUEST_TIMEOUT = 60
 MAX_PING_MS = 300
 MIN_VALID_CONFIGS = 3
@@ -772,5 +772,5 @@ def connect_with_cached_configs():
     return openvpn_enter_()
 
 
-#if __name__ == "__main__":
-#    prepare_vpn_configs()
+if __name__ == "__main__":
+    prepare_vpn_configs()

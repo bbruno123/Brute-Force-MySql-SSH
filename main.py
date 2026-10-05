@@ -5,11 +5,7 @@ import shlex
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parent
-STATUS_FILE = Path("/tmp/status")
-
-# Remove sinais antigos
-if STATUS_FILE.exists():
-    STATUS_FILE.unlink()
+STATUS_FILE = PROJECT_DIR / "status.txt"
 
 while True:
     mode = input("Escolha (mysql/ssh): ").strip().lower()
@@ -19,15 +15,22 @@ while True:
 
     print("Opção inválida. Digite mysql ou ssh.")
 
-with STATUS_FILE.open("w", encoding="utf-8") as f:
-    f.write(f"{mode}\n")
-    f.write("0\n")  # Inicializa o valor de i como 0
-    f.write("0\n")  # Inicializa o valor de j como 0
-    f.write("False\n")  # Inicializa o valor de finded como False
-    f.write("Tudo certo!\n")  # Inicializa o valor de status como uma mensagem padrão
-    f.write("\n")  # Inicializa o valor de user como uma string vazia
-    f.write("\n")  # Inicializa o valor de password como uma string vazia
-    f.write("\n")  # Inicializa o host como uma string vazia
+if STATUS_FILE.exists():
+    lines = STATUS_FILE.read_text(encoding="utf-8").splitlines(keepends=True)
+    lines.extend("\n" for _ in range(8 - len(lines)))
+    lines[0] = f"{mode}\n"
+else:
+    lines = [
+        f"{mode}\n",
+        "0\n",
+        "0\n",
+        "False\n",
+        "Tudo certo!\n",
+        "\n",
+        "\n",
+        "\n",
+    ]
+STATUS_FILE.write_text("".join(lines), encoding="utf-8")
 
 # Abre o segundo terminal
 module_path = PROJECT_DIR / f"{mode}.py"
@@ -97,7 +100,7 @@ try:
                 print(f"senha encontrada: {password}")
             
     else:
-        print("Arquivo /tmp/status não encontrado.")
+        print(f"Arquivo {STATUS_FILE} não encontrado.")
 
 except KeyboardInterrupt:
     print("\nmain.py interrompido.")

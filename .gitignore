@@ -1,2 +1,5 @@
 __pycache__
 .venv
+status.txt
+vpn_status.json
+ovpn_dinamics

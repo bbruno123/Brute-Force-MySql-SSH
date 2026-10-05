@@ -8,6 +8,7 @@ from pathlib import Path
 
 passwordsl = passwords.load_passwords()
 usersl = users.load_users()
+STATUS_FILE = Path(__file__).resolve().parent / "status.txt"
 
 openvpn_enter = vpn_vibe_coded.openvpn_enter_()
 
@@ -32,16 +33,15 @@ def reconnect_vpn(current_connection=None):
 
 
 def update_status(line_number, value):
-    status_file = Path("/tmp/status")
-    with status_file.open("r", encoding="utf-8") as f:
+    with STATUS_FILE.open("r", encoding="utf-8") as f:
         lines = f.readlines()
     while len(lines) <= line_number:
         lines.append("\n")
     lines[line_number] = f"{value}\n"
-    temporary_file = status_file.with_suffix(".tmp")
+    temporary_file = STATUS_FILE.with_suffix(".tmp")
     with temporary_file.open("w", encoding="utf-8") as f:
         f.writelines(lines)
-    temporary_file.replace(status_file)
+    temporary_file.replace(STATUS_FILE)
 
 
 def expect_state(process, patterns):

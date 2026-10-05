@@ -137,10 +137,10 @@ Qual o valor inicial da senha: 0
 
  ## 💾 Acompanhando o status
 
- Durante a execução, o programa salva o estado atual no arquivo temporário:
+ Durante a execução, o programa salva o estado atual no arquivo persistente:
 
 ```
-/tmp/status
+ status.txt
 ```
 
  O arquivo possui oito linhas:
@@ -159,7 +159,7 @@ Qual o valor inicial da senha: 0
  Para verificar o status pelo terminal:
 
 ```
-cat /tmp/status
+cat status.txt
 ```
 
  O arquivo é atualizado durante a execução. As atualizações são feitas por meio de um arquivo temporário, reduzindo o risco de o `main.py` ler o status enquanto ele ainda está sendo gravado.
@@ -172,13 +172,13 @@ Nenhuma combinação encontrada
 Muitas tentativas falhadas. Arquivo encerrado
 ```
 
- > **Importante:** o arquivo fica em `/tmp`, portanto é temporário e pode ser removido pelo sistema operacional, especialmente após reinicializações.
+ > **Importante:** o arquivo fica na pasta do projeto e não é apagado ao iniciar o programa. Assim, o estado permanece disponível após reinicializações do computador.
 
  ## 🔌 Configuração da conexão
 
  Depois de definir o valor inicial, cada módulo solicita as informações necessárias para sua conexão.
 
- O host informado é salvo na linha 8. Quando uma combinação é encontrada, o módulo imprime o usuário e a senha no terminal. Esses valores também são salvos no `/tmp/status` nas linhas 6 e 7.
+ O host informado é salvo na linha 8. Quando uma combinação é encontrada, o módulo imprime o usuário e a senha no terminal. Esses valores também são salvos no `status.txt` nas linhas 6 e 7.
 
  ### 🔐 SSH
 
@@ -355,12 +355,12 @@ Escolha (mysql/ssh): mysql
  A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de pelo menos **3 configurações aprovadas**:
 
  1. Procura em `ovpn_dinamics/` configurações que já foram aprovadas, cujo conteúdo ainda corresponde ao hash salvo e cuja data de download não tenha mais de **7 dias**.
- 2. Remove do diretório e do `/tmp/vpn_status.json` as configurações expiradas ou que não possuem uma data de download válida.
+ 2. Remove do diretório e do `vpn_status.json` as configurações expiradas ou que não possuem uma data de download válida.
  3. Reutiliza o cache somente quando existem pelo menos 3 configurações aprovadas e válidas.
  4. Se houver menos de 3 configurações válidas, mesmo que existam algumas aprovadas no cache, consulta a API do VPN Gate e inicia uma nova rodada para completar o conjunto.
  5. Remove duplicatas e acrescenta `remote-cert-tls server` quando a configuração não possui uma verificação equivalente.
  6. Conecta temporariamente em cada configuração nova para testar o túnel, a latência, a perda de pacotes, a estabilidade e, quando configurados, os destinos SSH e MySQL.
- 7. Salva cada configuração aprovada em `/tmp/vpn_status.json` com hash, estado, métricas e o campo `downloaded_at` em UTC.
+ 7. Salva cada configuração aprovada em `vpn_status.json` com hash, estado, métricas e o campo `downloaded_at` em UTC.
  8. Se uma rodada aprovar menos configurações do que o necessário, mantém as aprovadas e repete o download e a validação em outra rodada.
  9. Só finaliza quando acumula pelo menos 3 configurações aprovadas; se uma rodada não encontrar nenhuma configuração OpenVPN utilizável ou válida, encerra com erro explícito.
 
@@ -374,13 +374,13 @@ Escolha (mysql/ssh): mysql
 
  - seleção interativa de wordlists de usuários e senhas;
  - execução do modo escolhido em um segundo terminal XFCE por meio do `main.py`;
- - acompanhamento do índice atual, host, resultado e credenciais encontradas em `/tmp/status`;
+ - acompanhamento do índice atual, host, resultado e credenciais encontradas em `status.txt`;
  - suporte a prompts e mensagens de autenticação em português e inglês;
  - reconhecimento de prompts do MySQL, MariaDB e do shell SSH;
  - esperas aleatórias e troca periódica de VPN durante as tentativas;
  - troca de VPN depois de uma sequência de timeouts ou encerramentos inesperados;
  - download automático de configurações pelo VPN Gate;
- - cache persistente de configurações aprovadas em `/tmp/vpn_status.json`;
+ - cache persistente de configurações aprovadas em `vpn_status.json`;
  - registro da data de download (`downloaded_at`) e expiração automática após 7 dias;
  - exigência de pelo menos 3 configurações aprovadas antes de reutilizar o cache;
  - repetição de rodadas de download e validação quando o cache ou uma rodada ainda não atingir 3 configurações aprovadas;
@@ -420,7 +420,7 @@ vpn_vibe_coded.py
 
  Antes de usar uma configuração, o programa pode consultar a API do VPN Gate, baixar configurações OpenVPN e testá-las. Os testes medem latência, perda de pacotes e estabilidade e podem também verificar os destinos definidos pelas variáveis `VPN_SSH_TARGET` e `VPN_MYSQL_TARGET`, no formato `host:porta`.
 
- O cache em `/tmp/vpn_status.json` registra, para cada configuração aprovada, o hash do arquivo, o estado (`approved`), as métricas da validação e a data/hora UTC em `downloaded_at`. Uma configuração é considerada expirada após 7 dias do download. Na próxima execução de `prepare_vpn_configs()`, ela é removida junto com o arquivo `.ovpn`, e o processo de download e validação é executado novamente.
+ O cache em `vpn_status.json` registra, para cada configuração aprovada, o hash do arquivo, o estado (`approved`), as métricas da validação e a data/hora UTC em `downloaded_at`. Uma configuração é considerada expirada após 7 dias do download. Na próxima execução de `prepare_vpn_configs()`, ela é removida junto com o arquivo `.ovpn`, e o processo de download e validação é executado novamente.
 
  Mesmo que existam configurações aprovadas no cache, elas só são reutilizadas quando pelo menos 3 continuam válidas. Com menos de 3, o programa mantém as configurações aproveitáveis e busca, baixa e valida novas configurações. Se a primeira rodada não atingir o mínimo, novas rodadas são executadas até acumular 3 configurações aprovadas. Cada configuração aprovada em uma rodada recebe sua própria data `downloaded_at`.
 
