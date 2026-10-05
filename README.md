@@ -198,7 +198,13 @@ Muitas tentativas falhadas. Arquivo encerrado
 
  O SSH aguarda até 15 segundos por uma resposta antes de registrar um timeout.
 
- Vários timeouts consecutivos podem ocorrer por causa da distância ou da qualidade da VPN conectada; isso não significa necessariamente que a senha foi recusada.
+ O módulo diferencia três situações:
+
+ - `Permission denied`: rejeição explícita da autenticação; o fluxo avança para a próxima senha.
+ - `EOF`/`END`: a conexão ou o processo SSH foi encerrado; o módulo repete a mesma combinação até 5 encerramentos e, então, troca a VPN e avança.
+ - `TIMEOUT`: não houve resposta dentro dos 15 segundos; a mesma combinação é repetida. Após 10 timeouts consecutivos, a VPN é trocada e o contador de timeouts daquela VPN é reiniciado. Se a sequência atingir 15 timeouts sem uma resposta diferente de timeout, o processo é encerrado.
+
+ Qualquer resultado diferente de `TIMEOUT` reinicia a sequência global de timeouts. Isso evita interpretar como bloqueio uma conexão que voltou a responder.
 
 ### 🗄️ MySQL
 
@@ -218,7 +224,9 @@ Qual a porta: 3306
 
  O MySQL aguarda até 15 segundos por uma resposta antes de registrar um timeout.
 
- Vários timeouts consecutivos podem ocorrer por causa da distância ou da qualidade da VPN conectada; isso não significa necessariamente que a senha foi recusada.
+ O módulo diferencia rejeição de autenticação (`ERROR 1698`/`ERROR 1045`), encerramento da conexão (`EOF`/`END`) e ausência de resposta (`TIMEOUT`). Rejeições explícitas seguem para a próxima combinação. Encerramentos são repetidos até 5 ocorrências para a mesma combinação; depois disso, a VPN é trocada. Timeouts são repetidos até 10 ocorrências consecutivas antes de uma troca de VPN.
+
+ Além do contador por VPN, existe um limite de 15 timeouts consecutivos sem resposta diferente de `TIMEOUT`. Ao atingir esse limite, o módulo salva a mensagem no `status.txt`, fecha a conexão MySQL, fecha a VPN e encerra os loops de processamento. Se surgir qualquer resultado diferente de `TIMEOUT`, a sequência global de timeouts é reiniciada.
 
 ### 🔎 Mensagens reconhecidas pelo MySQL
 
@@ -436,6 +444,10 @@ Escolha (mysql/ssh): mysql
  - reconhecimento de prompts do MySQL, MariaDB e do shell SSH;
  - esperas aleatórias e troca periódica de VPN durante as tentativas;
  - troca de VPN depois de uma sequência de timeouts ou encerramentos inesperados;
+ - contadores separados para timeouts e encerramentos de conexão;
+ - troca de VPN após 10 timeouts consecutivos ou 5 encerramentos consecutivos;
+ - encerramento controlado após 15 timeouts consecutivos sem resposta diferente de timeout;
+ - gravação da causa de encerramento no `status.txt`, com fechamento da conexão MySQL e da VPN;
  - download automático de configurações pelo VPN Gate;
  - cache persistente de configurações aprovadas em `vpn_status.json`;
  - registro da data de download (`downloaded_at`) e expiração automática após 7 dias;

