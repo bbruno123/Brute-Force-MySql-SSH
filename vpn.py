@@ -6,7 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 
 vpn_files = [
-    "vpnbook-ca149-tcp443.ovpn",
+   "vpnbook-ca149-tcp443.ovpn",
     "vpnbook-fr200-tcp443.ovpn",
     "vpnbook-us16-tcp443.ovpn",
     "vpnbook-ca196-tcp443.ovpn",
@@ -38,7 +38,7 @@ def openvpn_enter_():
         raise RuntimeError("Não foi possível encontrar a senha do OpenVPN.")
 
     project_dir = Path(__file__).resolve().parent
-    for _ in range(3):
+    for _ in range(5):
 
         vpn_file = random.choice(vpn_files)
 
@@ -80,4 +80,4 @@ def openvpn_enter_():
             process.close()
             continue
 
-    raise RuntimeError("Não foi possível conectar à VPN após 3 tentativas.")
+    raise RuntimeError("Não foi possível conectar à VPN após 5 tentativas.")

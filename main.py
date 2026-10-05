@@ -25,6 +25,8 @@ with STATUS_FILE.open("w", encoding="utf-8") as f:
     f.write("0\n")  # Inicializa o valor de j como 0
     f.write("False\n")  # Inicializa o valor de finded como False
     f.write("Tudo certo!\n")  # Inicializa o valor de status como uma mensagem padrão
+    f.write("\n")  # Inicializa o valor de user como uma string vazia
+    f.write("\n")  # Inicializa o valor de password como uma string vazia
 
 # Abre o segundo terminal
 module_path = PROJECT_DIR / f"{mode}.py"
@@ -69,7 +71,7 @@ try:
         with STATUS_FILE.open("r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        if len(lines) < 5:
+        if len(lines) < 7:
             print("Arquivo de status incompleto.")
         else:
             i = lines[1].strip()
@@ -77,12 +79,18 @@ try:
             mysql_or_ssh = lines[0].strip()
             finded = lines[3].strip()
             status = lines[4].strip()
+            user = lines[5].strip()
+            password = lines[6].strip()
 
             print(f"usuário atual: {i}")
             print(f"senha atual: {j}")
             print(f"modo atual: {mysql_or_ssh}")
             print(f"finded atual: {finded}")
             print(f"status atual: {status}")
+            if password:
+                print(f"senha encontrada: {password}")
+            if user:
+                print(f"usuário encontrado: {user}")
             
     else:
         print("Arquivo /tmp/status não encontrado.")

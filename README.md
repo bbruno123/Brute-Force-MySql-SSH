@@ -33,9 +33,11 @@ BruteForce_mysql:ssh/
     ├── passwords/
     │   ├── 100k-most-used-passwords-NCSC_.txt
     │   ├── 10k-most-common_.txt
-    │   └── default-passwords_.txt
+    │   ├── default-passwords_.txt
+    │   └── password.txt
     │
     └── users/
+        ├── demo.txt
         ├── top-usernames-shortlist.txt
         └── xato-net-10-million-usernames.txt
 ```
@@ -102,67 +104,31 @@ sudo apt update
 sudo apt install xfce4-terminal
 ```
 
- ## 🔑 Alterando a Wordlist
+ ## 🔑 Selecionando as Wordlists
 
- A wordlist utilizada pelo programa pode ser alterada no arquivo:
-
-```
-passwords.py
-```
-
- No início do arquivo existe:
+ As wordlists de usuários e senhas são encontradas automaticamente dentro de:
 
 ```
-from pathlib import Path
-
-folder = Path(__file__).parent
-file = folder / "wordlists" / "passwords" / "100k-most-used-passwords-NCSC_.txt"
+wordlists/users/
+wordlists/passwords/
 ```
 
- Para utilizar outra wordlist, altere apenas o nome do arquivo.
+ Ao iniciar o programa, `users.py` e `passwords.py` exibem os arquivos disponíveis e permitem escolher uma wordlist pelo número apresentado. Não é necessário editar o código para trocar a lista.
 
- Por exemplo:
+ Para adicionar uma nova lista, coloque um arquivo de texto na pasta correspondente. O programa encontrará o arquivo automaticamente na próxima execução.
 
-```
-file = folder / "wordlists" / "passwords" / "10k-most-common_.txt"
-```
+ Os caminhos são calculados a partir da localização dos próprios scripts. O programa pode ser iniciado a partir de outro diretório sem exigir caminhos absolutos manuais.
 
- ou:
+ ## 🔢 Valores iniciais das Wordlists
 
-```
-file = folder / "wordlists" / "passwords" / "default-passwords_.txt"
-```
-
- ### ➕ Adicionando uma nova Wordlist
-
- Coloque o arquivo `.txt` dentro da pasta `wordlists/passwords/`.
-
- Exemplo:
+ Os módulos `mysql.py` e `ssh.py` solicitam o índice inicial do usuário e da senha:
 
 ```
-wordlists/
-└── passwords/
-    ├── 100k-most-used-passwords-NCSC_.txt
-    ├── 10k-most-common_.txt
-    ├── default-passwords_.txt
-    └── minha-wordlist.txt
+i = int(input("Qual o valor inicial do usuário: "))
+j = int(input("Qual o valor inicial da senha: "))
 ```
 
- Depois, altere `passwords.py`:
-
-```
-file = folder / "wordlists" / "minha-wordlist.txt"
-```
-
- ## 🔢 Valor inicial da Wordlist
-
- Os módulos `mysql.py` e `ssh.py` solicitam o valor inicial:
-
-```
-i = int(input("Qual o valor inicial: "))
-```
-
- O valor de `i` representa o **índice da entrada da wordlist** a partir do qual o programa será iniciado.
+ `i` representa a posição inicial na wordlist de usuários e `j` representa a posição inicial na wordlist de senhas.
 
  Os índices começam em `0`:
 
@@ -176,18 +142,11 @@ i = int(input("Qual o valor inicial: "))
  Por exemplo:
 
 ```
-Qual o valor inicial: 0
+Qual o valor inicial do usuário: 100
+Qual o valor inicial da senha: 0
 ```
 
- começa na primeira entrada.
-
- Já:
-
-```
-Qual o valor inicial: 100
-```
-
- começa na entrada de índice `100`, que corresponde à **101ª entrada**.
+ começa no usuário de índice `100` e na senha de índice `0`.
 
  > **Importante:** `i` é um índice. Portanto, a primeira entrada da lista corresponde a `0`, e não a `1`.
 
@@ -199,7 +158,7 @@ Qual o valor inicial: 100
 /tmp/status
 ```
 
- O arquivo possui cinco linhas:
+ O arquivo possui sete linhas:
 
  | Linha | Conteúdo |
  | --- | --- |
@@ -208,6 +167,8 @@ Qual o valor inicial: 100
  | 3 | Índice atual da senha |
  | 4 | Indica se uma combinação foi encontrada: `True` ou `False` |
  | 5 | Mensagem atual do programa |
+ | 6 | Usuário encontrado, quando uma combinação é localizada |
+ | 7 | Senha encontrada, quando uma combinação é localizada |
 
  Para verificar o status pelo terminal:
 
@@ -217,7 +178,7 @@ cat /tmp/status
 
  O arquivo é atualizado durante a execução. As atualizações são feitas por meio de um arquivo temporário, reduzindo o risco de o `main.py` ler o status enquanto ele ainda está sendo gravado.
 
- Mensagens possíveis na última linha incluem:
+ Mensagens possíveis na quinta linha incluem:
 
 ```
 Tudo certo!
@@ -231,35 +192,41 @@ Muitas tentativas falhadas. Arquivo encerrado
 
  Depois de definir o valor inicial, cada módulo solicita as informações necessárias para sua conexão.
 
+ Quando uma combinação é encontrada, o módulo imprime o usuário e a senha no terminal. Esses valores também são salvos no `/tmp/status` nas linhas 6 e 7.
+
  ### 🔐 SSH
 
  No modo `ssh`:
 
 ```
-user = str(input("Qual o usuário: "))
-destino = str(input("Qual o destino: "))
-port = str(input("Qual a porta: "))
+ Qual o valor inicial do usuário: 0
+ Qual o valor inicial da senha: 0
+ Qual o destino: servidor.exemplo.com
+ Qual a porta: 22
 ```
 
  | Entrada | Descrição | Exemplo |
 | --- | --- | --- |
-| `user` | Usuário da conexão SSH | `usuario` |
 | `destino` | Host ou endereço do servidor | `servidor.exemplo.com` |
 | `port` | Porta do serviço SSH | `22` |
+
+ O SSH aguarda até 30 segundos por uma resposta antes de registrar um timeout.
 
 ### 🗄️ MySQL
 
  No modo `mysql`:
 
 ```
-user = input("Qual o usuário: ")
-destino = input("Qual o destino: ")
+ Qual o valor inicial do usuário: 0
+ Qual o valor inicial da senha: 0
+ Qual o destino: servidor.exemplo.com
 ```
 
  | Entrada | Descrição | Exemplo |
 | --- | --- | --- |
-| `user` | Usuário da conexão MySQL | `usuario` |
 | `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
+
+ O MySQL aguarda até 30 segundos por uma resposta antes de registrar um timeout.
 
 ### 🔎 Mensagens reconhecidas pelo MySQL
 
@@ -422,10 +389,10 @@ vpn.py
 
  O caminho dos arquivos `.ovpn` é calculado a partir da pasta do projeto, portanto a execução não depende da pasta atual do terminal.
 
- Em caso de falha, o programa tenta conectar até três vezes. Depois disso, informa:
+ Em caso de falha, o programa tenta conectar até cinco vezes. Depois disso, informa:
 
 ```
-Não foi possível conectar à VPN após 3 tentativas.
+Não foi possível conectar à VPN após 5 tentativas.
 ```
 
  ## 📝 Arquivos principais
