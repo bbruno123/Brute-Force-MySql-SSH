@@ -50,6 +50,7 @@ i = int(input("Qual o valor inicial do usuário: "))
 j = int(input("Qual o valor inicial da senha: "))
 
 host = input("Qual o destino: ")
+port = input("Qual a porta: ")
 
 next_ = random.randint(30, 45)
 next5 = 5
@@ -64,7 +65,12 @@ while i < len(usersl):
 
         update_status(2, j)
 
-        process = pexpect.spawn("mysql", ["-u", usersl[i], "-p", host], encoding="utf-8", timeout=MYSQL_TIMEOUT)
+        process = pexpect.spawn(
+            "mysql",
+            ["-u", usersl[i], "-p", "-h", host, "-P", port],
+            encoding="utf-8",
+            timeout=MYSQL_TIMEOUT,
+        )
 
         result = expect_state(
             process,

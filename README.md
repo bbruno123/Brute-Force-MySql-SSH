@@ -220,11 +220,13 @@ Muitas tentativas falhadas. Arquivo encerrado
  Qual o valor inicial do usuário: 0
  Qual o valor inicial da senha: 0
  Qual o destino: servidor.exemplo.com
+Qual a porta: 3306
 ```
 
  | Entrada | Descrição | Exemplo |
 | --- | --- | --- |
 | `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
+| `port` | Porta do serviço MySQL | `3306` |
 
  O MySQL aguarda até 30 segundos por uma resposta antes de registrar um timeout.
 
