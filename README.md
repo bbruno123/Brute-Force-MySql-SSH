@@ -14,35 +14,20 @@ BruteForce_mysql:ssh/
 ├── mysql.py
 ├── passwords.py
 ├── ssh.py
-├── vpn.py
+├── users.py
+├── vpn_vibe_coded.py
 ├── requirements.txt
 │
-├── VPNBook/
-│   ├── vpnbook-ca149-tcp443.ovpn
-│   ├── vpnbook-ca196-tcp443.ovpn
-│   ├── vpnbook-de20-tcp443.ovpn
-│   ├── vpnbook-de220-tcp443.ovpn
-│   ├── vpnbook-fr200-tcp443.ovpn
-│   ├── vpnbook-fr2311-tcp443.ovpn
-│   ├── vpnbook-uk205-tcp443.ovpn
-│   ├── vpnbook-uk68-tcp443.ovpn
-│   ├── vpnbook-us16-tcp443.ovpn
-│   └── vpnbook-us178-tcp443.ovpn
+├── ovpn_dinamics/
+│   └── (arquivos .ovpn gerenciados automaticamente)
 │
 └── wordlists/
-    ├── passwords/
-    │   ├── 100k-most-used-passwords-NCSC_.txt
-    │   ├── 10k-most-common_.txt
-    │   ├── default-passwords_.txt
-    │   └── password.txt
+    ├── passwords/ (wordlists incluídas no repositório)
     │
-    └── users/
-        ├── demo.txt
-        ├── top-usernames-shortlist.txt
-        └── xato-net-10-million-usernames.txt
+    └── users/ (wordlists incluídas no repositório)
 ```
 
- > **Nota:** as wordlists são separadas nas pastas `wordlists/passwords/` e `wordlists/users/`.
+ > **Nota:** as wordlists que já estão nas pastas `wordlists/passwords/` e `wordlists/users/` são incluídas no repositório e virão junto com o clone ou download do projeto. Esses diretórios continuam sendo dinâmicos: o usuário pode adicionar ou remover arquivos `.txt` e a quantidade de listas pode mudar ao longo do tempo. Já `ovpn_dinamics/` é um cache de configurações `.ovpn` gerenciado automaticamente.
 
  ## 🐧 Compatibilidade com Linux
 
@@ -158,7 +143,7 @@ Qual o valor inicial da senha: 0
 /tmp/status
 ```
 
- O arquivo possui sete linhas:
+ O arquivo possui oito linhas:
 
  | Linha | Conteúdo |
  | --- | --- |
@@ -169,6 +154,7 @@ Qual o valor inicial da senha: 0
  | 5 | Mensagem atual do programa |
  | 6 | Usuário encontrado, quando uma combinação é localizada |
  | 7 | Senha encontrada, quando uma combinação é localizada |
+ | 8 | Host informado para a conexão |
 
  Para verificar o status pelo terminal:
 
@@ -192,7 +178,7 @@ Muitas tentativas falhadas. Arquivo encerrado
 
  Depois de definir o valor inicial, cada módulo solicita as informações necessárias para sua conexão.
 
- Quando uma combinação é encontrada, o módulo imprime o usuário e a senha no terminal. Esses valores também são salvos no `/tmp/status` nas linhas 6 e 7.
+ O host informado é salvo na linha 8. Quando uma combinação é encontrada, o módulo imprime o usuário e a senha no terminal. Esses valores também são salvos no `/tmp/status` nas linhas 6 e 7.
 
  ### 🔐 SSH
 
@@ -210,7 +196,9 @@ Muitas tentativas falhadas. Arquivo encerrado
 | `destino` | Host ou endereço do servidor | `servidor.exemplo.com` |
 | `port` | Porta do serviço SSH | `22` |
 
- O SSH aguarda até 30 segundos por uma resposta antes de registrar um timeout.
+ O SSH aguarda até 15 segundos por uma resposta antes de registrar um timeout.
+
+ Vários timeouts consecutivos podem ocorrer por causa da distância ou da qualidade da VPN conectada; isso não significa necessariamente que a senha foi recusada.
 
 ### 🗄️ MySQL
 
@@ -228,7 +216,9 @@ Qual a porta: 3306
 | `destino` | Host ou endereço do servidor MySQL | `servidor.exemplo.com` |
 | `port` | Porta do serviço MySQL | `3306` |
 
- O MySQL aguarda até 30 segundos por uma resposta antes de registrar um timeout.
+ O MySQL aguarda até 15 segundos por uma resposta antes de registrar um timeout.
+
+ Vários timeouts consecutivos podem ocorrer por causa da distância ou da qualidade da VPN conectada; isso não significa necessariamente que a senha foi recusada.
 
 ### 🔎 Mensagens reconhecidas pelo MySQL
 
@@ -290,7 +280,7 @@ root@servidor:~#
 ```
 mysql.py
 ssh.py
-vpn.py
+vpn_vibe_coded.py
 ```
 
  Para iniciar:
@@ -358,43 +348,70 @@ Escolha (mysql/ssh): mysql
 
  > **Importante:** `main.py` é o ponto de entrada do projeto e deve ser utilizado para iniciar a aplicação.
 
+ ## 🧩 O que `prepare_vpn_configs()` faz
+
+ `prepare_vpn_configs()` está no arquivo `vpn_vibe_coded.py` e é chamado tanto por `mysql.py` quanto por `ssh.py` antes do início das tentativas de autenticação.
+
+ A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de configurações aprovadas:
+
+ 1. Procura em `ovpn_dinamics/` configurações que já foram aprovadas e cujo conteúdo ainda corresponde ao hash salvo.
+ 2. Se encontrar configurações aprovadas no cache, reutiliza-as sem repetir a validação.
+ 3. Caso não encontre nenhuma, consulta a API do VPN Gate, filtra servidores por região, ping e disponibilidade de configuração OpenVPN.
+ 4. Baixa configurações novas, remove duplicatas e acrescenta `remote-cert-tls server` quando a configuração não possui uma verificação equivalente.
+ 5. Conecta temporariamente em cada configuração para testar o túnel, a latência, a perda de pacotes e a estabilidade.
+ 6. Salva o resultado em `/tmp/vpn_status.json`, mantendo apenas as configurações aprovadas para uso posterior.
+
+ Depois dessa preparação, `openvpn_enter_()` escolhe uma configuração aprovada e inicia o OpenVPN. Se uma conexão falhar durante a execução, `mysql.py` e `ssh.py` chamam novamente essa rotina por meio de `reconnect_vpn()`.
+
+ ## 🤖 Autoria e recursos adicionais identificados
+
+ `vpn_vibe_coded.py` foi feito com auxílio de inteligência artificial. O restante do projeto foi desenvolvido por mim. Esta declaração se refere à autoria dos arquivos e não significa que todos os comportamentos abaixo existiam desde a primeira versão.
+
+ Durante a leitura do código atual, além do fluxo básico de testar combinações de usuário e senha, foram identificados estes recursos adicionais:
+
+ - seleção interativa de wordlists de usuários e senhas;
+ - execução do modo escolhido em um segundo terminal XFCE por meio do `main.py`;
+ - acompanhamento do índice atual, host, resultado e credenciais encontradas em `/tmp/status`;
+ - suporte a prompts e mensagens de autenticação em português e inglês;
+ - reconhecimento de prompts do MySQL, MariaDB e do shell SSH;
+ - esperas aleatórias e troca periódica de VPN durante as tentativas;
+ - troca de VPN depois de uma sequência de timeouts ou encerramentos inesperados;
+ - download automático de configurações pelo VPN Gate;
+ - cache persistente de configurações aprovadas em `/tmp/vpn_status.json`;
+ - verificação de hash, remoção de configurações duplicadas e descarte de configurações que falharam;
+ - filtragem regional, limite de latência, medição de perda de pacotes e teste opcional de destinos TCP;
+ - ordenação das VPNs pela estabilidade medida e escolha aleatória entre as configurações aprovadas.
+
+ Essa lista é uma descrição do que está implementado no estado atual do código; não é uma reconstrução histórica precisa de quando cada item foi adicionado.
+
  ## 🔐 VPN
 
  As configurações do OpenVPN ficam na pasta:
 
-```
-VPNBook/
-```
+ ```
+ ovpn_dinamics/
+ ```
 
- O projeto possui atualmente 10 arquivos de configuração:
+ Essa pasta funciona como cache e pode ser atualizada automaticamente por `prepare_vpn_configs()`. Os arquivos presentes podem mudar conforme os servidores disponíveis no VPN Gate.
 
-```
-vpnbook-ca149-tcp443.ovpn
-vpnbook-ca196-tcp443.ovpn
-vpnbook-de20-tcp443.ovpn
-vpnbook-de220-tcp443.ovpn
-vpnbook-fr200-tcp443.ovpn
-vpnbook-fr2311-tcp443.ovpn
-vpnbook-uk205-tcp443.ovpn
-vpnbook-uk68-tcp443.ovpn
-vpnbook-us16-tcp443.ovpn
-vpnbook-us178-tcp443.ovpn
-```
-
- O gerenciamento das conexões VPN é realizado pelo arquivo:
+ O gerenciamento atual das conexões VPN é realizado pelo arquivo:
 
 ```
-vpn.py
+vpn_vibe_coded.py
 ```
 
- A consulta da senha do OpenVPN é feita somente quando `openvpn_enter_()` é chamado. Importar o módulo `vpn.py` não inicia a conexão por si só.
+ A função `openvpn_enter_()` solicita as credenciais `vpn` somente quando uma conexão é iniciada. Importar o módulo `vpn_vibe_coded.py` não inicia uma conexão por si só.
 
- O caminho dos arquivos `.ovpn` é calculado a partir da pasta do projeto, portanto a execução não depende da pasta atual do terminal.
+ Os arquivos `.ovpn` são armazenados em `ovpn_dinamics/`, cujo caminho é calculado a partir da localização do projeto. A execução, portanto, não depende da pasta atual do terminal.
 
- Em caso de falha, o programa tenta conectar até cinco vezes. Depois disso, informa:
+ Antes de usar uma configuração, o programa pode consultar a API do VPN Gate, baixar configurações OpenVPN e testá-las. Os testes medem latência, perda de pacotes e estabilidade e podem também verificar os destinos definidos pelas variáveis `VPN_SSH_TARGET` e `VPN_MYSQL_TARGET`, no formato `host:porta`.
+
+ A conexão pode apresentar timeouts quando o servidor VPN escolhido está distante do destino ou apresenta alta latência, perda de pacotes ou uma rota instável. Durante a execução, `mysql.py` e `ssh.py` reconectam após falhas consecutivas e também trocam periodicamente de configuração.
+
+ Em caso de falha, `openvpn_enter_()` tenta cada configuração aprovada, repetindo cada uma até três vezes. Depois disso, informa:
 
 ```
-Não foi possível conectar à VPN após 5 tentativas.
+Não foi possível conectar após testar as configurações aprovadas.
 ```
 
  ## 📝 Arquivos principais
@@ -405,9 +422,10 @@ Não foi possível conectar à VPN após 5 tentativas.
 | `mysql.py` | Módulo relacionado ao MySQL |
 | `ssh.py` | Módulo relacionado ao SSH |
 | `passwords.py` | Carregamento da wordlist |
-| `vpn.py` | Gerenciamento das conexões VPN |
+| `users.py` | Carregamento da wordlist de usuários |
+| `vpn_vibe_coded.py` | Download, validação, cache e conexão das VPNs |
 | `requirements.txt` | Dependências externas do Python |
-| `VPNBook/` | Arquivos de configuração `.ovpn` |
+| `ovpn_dinamics/` | Cache de arquivos de configuração `.ovpn` |
 | `wordlists/passwords/` | Wordlists de senhas utilizadas pelo projeto |
 | `wordlists/users/` | Wordlists de usuários utilizadas pelo projeto |
 

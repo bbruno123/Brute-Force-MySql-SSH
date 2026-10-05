@@ -27,6 +27,7 @@ with STATUS_FILE.open("w", encoding="utf-8") as f:
     f.write("Tudo certo!\n")  # Inicializa o valor de status como uma mensagem padrão
     f.write("\n")  # Inicializa o valor de user como uma string vazia
     f.write("\n")  # Inicializa o valor de password como uma string vazia
+    f.write("\n")  # Inicializa o host como uma string vazia
 
 # Abre o segundo terminal
 module_path = PROJECT_DIR / f"{mode}.py"
@@ -71,7 +72,7 @@ try:
         with STATUS_FILE.open("r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        if len(lines) < 7:
+        if len(lines) < 8:
             print("Arquivo de status incompleto.")
         else:
             i = lines[1].strip()
@@ -81,16 +82,19 @@ try:
             status = lines[4].strip()
             user = lines[5].strip()
             password = lines[6].strip()
+            host = lines[7].strip()
 
             print(f"usuário atual: {i}")
             print(f"senha atual: {j}")
             print(f"modo atual: {mysql_or_ssh}")
             print(f"finded atual: {finded}")
             print(f"status atual: {status}")
-            if password:
-                print(f"senha encontrada: {password}")
+            if host:
+                print(f"host atual: {host}")
             if user:
                 print(f"usuário encontrado: {user}")
+            if password:
+                print(f"senha encontrada: {password}")
             
     else:
         print("Arquivo /tmp/status não encontrado.")
