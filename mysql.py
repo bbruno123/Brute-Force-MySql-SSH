@@ -144,7 +144,7 @@ while i < len(usersl):
         delay = random.randint(1, 10)
         time.sleep(delay)
 
-        if result in (END, TIMEOUT):
+        if result == TIMEOUT:
             tries_exceeded += 1
 
             if tries_exceeded >= 10:
@@ -167,9 +167,9 @@ while i < len(usersl):
             openvpn_enter = reconnect_vpn(openvpn_enter)
             next5 += 5
         
-        if result not in (END, TIMEOUT):
+        if result != TIMEOUT:
             j += 1
-
+            
     if finded == True:
         break
 
