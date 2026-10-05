@@ -352,14 +352,17 @@ Escolha (mysql/ssh): mysql
 
  `prepare_vpn_configs()` está no arquivo `vpn_vibe_coded.py` e é chamado tanto por `mysql.py` quanto por `ssh.py` antes do início das tentativas de autenticação.
 
- A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de configurações aprovadas:
+ A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de pelo menos **3 configurações aprovadas**:
 
- 1. Procura em `ovpn_dinamics/` configurações que já foram aprovadas e cujo conteúdo ainda corresponde ao hash salvo.
- 2. Se encontrar configurações aprovadas no cache, reutiliza-as sem repetir a validação.
- 3. Caso não encontre nenhuma, consulta a API do VPN Gate, filtra servidores por região, ping e disponibilidade de configuração OpenVPN.
- 4. Baixa configurações novas, remove duplicatas e acrescenta `remote-cert-tls server` quando a configuração não possui uma verificação equivalente.
- 5. Conecta temporariamente em cada configuração para testar o túnel, a latência, a perda de pacotes e a estabilidade.
- 6. Salva o resultado em `/tmp/vpn_status.json`, mantendo apenas as configurações aprovadas para uso posterior.
+ 1. Procura em `ovpn_dinamics/` configurações que já foram aprovadas, cujo conteúdo ainda corresponde ao hash salvo e cuja data de download não tenha mais de **7 dias**.
+ 2. Remove do diretório e do `/tmp/vpn_status.json` as configurações expiradas ou que não possuem uma data de download válida.
+ 3. Reutiliza o cache somente quando existem pelo menos 3 configurações aprovadas e válidas.
+ 4. Se houver menos de 3 configurações válidas, mesmo que existam algumas aprovadas no cache, consulta a API do VPN Gate e inicia uma nova rodada para completar o conjunto.
+ 5. Remove duplicatas e acrescenta `remote-cert-tls server` quando a configuração não possui uma verificação equivalente.
+ 6. Conecta temporariamente em cada configuração nova para testar o túnel, a latência, a perda de pacotes, a estabilidade e, quando configurados, os destinos SSH e MySQL.
+ 7. Salva cada configuração aprovada em `/tmp/vpn_status.json` com hash, estado, métricas e o campo `downloaded_at` em UTC.
+ 8. Se uma rodada aprovar menos configurações do que o necessário, mantém as aprovadas e repete o download e a validação em outra rodada.
+ 9. Só finaliza quando acumula pelo menos 3 configurações aprovadas; se uma rodada não encontrar nenhuma configuração OpenVPN utilizável ou válida, encerra com erro explícito.
 
  Depois dessa preparação, `openvpn_enter_()` escolhe uma configuração aprovada e inicia o OpenVPN. Se uma conexão falhar durante a execução, `mysql.py` e `ssh.py` chamam novamente essa rotina por meio de `reconnect_vpn()`.
 
@@ -378,6 +381,9 @@ Escolha (mysql/ssh): mysql
  - troca de VPN depois de uma sequência de timeouts ou encerramentos inesperados;
  - download automático de configurações pelo VPN Gate;
  - cache persistente de configurações aprovadas em `/tmp/vpn_status.json`;
+ - registro da data de download (`downloaded_at`) e expiração automática após 7 dias;
+ - exigência de pelo menos 3 configurações aprovadas antes de reutilizar o cache;
+ - repetição de rodadas de download e validação quando o cache ou uma rodada ainda não atingir 3 configurações aprovadas;
  - verificação de hash, remoção de configurações duplicadas e descarte de configurações que falharam;
  - filtragem regional, limite de latência, medição de perda de pacotes e teste opcional de destinos TCP;
  - ordenação das VPNs pela estabilidade medida e escolha aleatória entre as configurações aprovadas.
@@ -413,6 +419,10 @@ vpn_vibe_coded.py
  Os arquivos `.ovpn` são armazenados em `ovpn_dinamics/`, cujo caminho é calculado a partir da localização do projeto. A execução, portanto, não depende da pasta atual do terminal.
 
  Antes de usar uma configuração, o programa pode consultar a API do VPN Gate, baixar configurações OpenVPN e testá-las. Os testes medem latência, perda de pacotes e estabilidade e podem também verificar os destinos definidos pelas variáveis `VPN_SSH_TARGET` e `VPN_MYSQL_TARGET`, no formato `host:porta`.
+
+ O cache em `/tmp/vpn_status.json` registra, para cada configuração aprovada, o hash do arquivo, o estado (`approved`), as métricas da validação e a data/hora UTC em `downloaded_at`. Uma configuração é considerada expirada após 7 dias do download. Na próxima execução de `prepare_vpn_configs()`, ela é removida junto com o arquivo `.ovpn`, e o processo de download e validação é executado novamente.
+
+ Mesmo que existam configurações aprovadas no cache, elas só são reutilizadas quando pelo menos 3 continuam válidas. Com menos de 3, o programa mantém as configurações aproveitáveis e busca, baixa e valida novas configurações. Se a primeira rodada não atingir o mínimo, novas rodadas são executadas até acumular 3 configurações aprovadas. Cada configuração aprovada em uma rodada recebe sua própria data `downloaded_at`.
 
  A conexão pode apresentar timeouts quando o servidor VPN escolhido está distante do destino ou apresenta alta latência, perda de pacotes ou uma rota instável. Durante a execução, `mysql.py` e `ssh.py` reconectam após falhas consecutivas e também trocam periodicamente de configuração.
 

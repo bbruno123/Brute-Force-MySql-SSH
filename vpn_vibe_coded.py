@@ -1,6 +1,7 @@
 import base64
 import binascii
 import csv
+from datetime import datetime, timedelta, timezone
 import hashlib
 import io
 import json
@@ -22,12 +23,13 @@ VPN_DIRECTORY = Path(__file__).resolve().parent / "ovpn_dinamics"
 STATUS_FILE = Path("/tmp/vpn_status.json")
 REQUEST_TIMEOUT = 60
 MAX_PING_MS = 300
-MIN_VALID_CONFIGS = 5
-MAX_DOWNLOAD_CANDIDATES = 8
+MIN_VALID_CONFIGS = 3
+MAX_DOWNLOAD_CANDIDATES = 35
 PING_COUNT = 5
 PING_TIMEOUT_SECONDS = 3
 STABILITY_SECONDS = 5
 MAX_PACKET_LOSS_PERCENT = 1.0
+CONFIG_MAX_AGE = timedelta(days=7)
 
 COUNTRY_TIERS = [
     ("BR",),
@@ -226,11 +228,50 @@ def _save_status(status):
         print(f"Não foi possível atualizar {STATUS_FILE}: {error}")
 
 
-def _status_entry(digest, state, metrics=None):
+def _status_entry(digest, state, metrics=None, downloaded_at=None):
     entry = {"digest": digest.hex(), "state": state}
     if metrics is not None:
         entry["metrics"] = metrics
+    if downloaded_at is not None:
+        entry["downloaded_at"] = downloaded_at
     return entry
+
+
+def _utc_timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _is_config_expired(entry, now=None):
+    downloaded_at = entry.get("downloaded_at")
+    if not isinstance(downloaded_at, str):
+        return True
+    try:
+        downloaded_time = datetime.fromisoformat(downloaded_at)
+    except ValueError:
+        return True
+    if downloaded_time.tzinfo is None:
+        downloaded_time = downloaded_time.replace(tzinfo=timezone.utc)
+    return (now or datetime.now(timezone.utc)) - downloaded_time > CONFIG_MAX_AGE
+
+
+def _discard_expired_configs(status):
+    now = datetime.now(timezone.utc)
+    expired = []
+    for name, entry in list(status.items()):
+        if not name.endswith(".ovpn") or not _is_config_expired(entry, now):
+            continue
+        config_path = VPN_DIRECTORY / name
+        try:
+            config_path.unlink()
+            print(f"Configuração expirada removida: {name}")
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            print(f"Não foi possível remover configuração expirada {name}: {error}")
+            continue
+        status.pop(name, None)
+        expired.append(name)
+    return expired
 
 
 def _config_endpoint_key(config_path):
@@ -475,6 +516,9 @@ def _check_existing_configs():
                     digest,
                     "approved",
                     metrics_by_path[config_path],
+                    cached.get("downloaded_at", _utc_timestamp())
+                    if isinstance(cached, dict)
+                    else _utc_timestamp(),
                 )
             else:
                 status.pop(config_path.name, None)
@@ -498,7 +542,7 @@ def _next_config_number(configs):
     return max(numbers, default=0) + 1
 
 
-def update_vpn_configs():
+def _update_vpn_configs_once():
     """Baixa, valida e atualiza o cache de configurações VPN."""
     configs, status = _check_existing_configs()
     print("Consultando servidores VPN atuais...")
@@ -556,7 +600,7 @@ def update_vpn_configs():
             known_endpoints.add(endpoint)
             priorities[config_path] = _country_priority(country)
             status.pop(config_path.name, None)
-            new_metadata[config_path] = (digest, endpoint)
+            new_metadata[config_path] = (digest, endpoint, _utc_timestamp())
         except (OSError, ValueError) as error:
             print(f"Configuração ignorada: {error}")
             continue
@@ -572,7 +616,7 @@ def update_vpn_configs():
     approved_new = _validate_configs(new_configs, priorities)
     approved_by_path = {path: metrics for path, metrics in approved_new}
     for config_path in new_configs:
-        digest, endpoint = new_metadata[config_path]
+        digest, endpoint, downloaded_at = new_metadata[config_path]
         if not config_path.exists():
             status.pop(config_path.name, None)
         elif config_path in approved_by_path:
@@ -580,6 +624,7 @@ def update_vpn_configs():
                 digest,
                 "approved",
                 approved_by_path[config_path],
+                downloaded_at,
             )
         else:
             status.pop(config_path.name, None)
@@ -609,6 +654,19 @@ def update_vpn_configs():
 
     print(f"{len(approved)} configuração(ões) aprovadas e disponíveis.")
     return [config_path for config_path, _ in approved]
+
+
+def update_vpn_configs():
+    """Repete download e validação até reunir o mínimo de VPNs aprovadas."""
+    while True:
+        approved = _update_vpn_configs_once()
+        if len(approved) >= MIN_VALID_CONFIGS:
+            return approved
+        print(
+            f"Apenas {len(approved)} configuração(ões) aprovadas; "
+            f"é necessário atingir {MIN_VALID_CONFIGS}. "
+            "Iniciando outra rodada de download e validação..."
+        )
 
 
 def _discard_cached_config(config_path, status, reason):
@@ -642,12 +700,21 @@ def _approved_cached_configs():
 
 def prepare_vpn_configs():
     """Garante VPNs aprovadas no cache sem iniciar uma conexão OpenVPN."""
+    status = _load_status()
+    expired = _discard_expired_configs(status)
+    if expired:
+        _save_status(status)
+
     approved = _approved_cached_configs()
-    if approved:
+    if len(approved) >= MIN_VALID_CONFIGS:
         print(f"{len(approved)} configuração(ões) aprovadas no cache.")
         return approved
 
-    print("Nenhuma configuração aprovada no cache. Atualizando VPNs...")
+    print(
+        f"Apenas {len(approved)} configuração(ões) aprovadas no cache; "
+        f"é necessário ter pelo menos {MIN_VALID_CONFIGS}. "
+        "Atualizando VPNs..."
+    )
     return update_vpn_configs()
 
 
@@ -705,5 +772,5 @@ def connect_with_cached_configs():
     return openvpn_enter_()
 
 
-#if __name__ == "__main__":
-#    prepare_vpn_configs()
+if __name__ == "__main__":
+    prepare_vpn_configs()
