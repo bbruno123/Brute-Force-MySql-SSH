@@ -22,11 +22,11 @@ API_URL = "https://www.vpngate.net/api/iphone/"
 VPN_DIRECTORY = Path(__file__).resolve().parent / "ovpn_dinamics"
 STATUS_FILE = Path(__file__).resolve().parent / "vpn_status.json"
 REQUEST_TIMEOUT = 60
-MAX_PING_MS = 500
-MIN_VALID_CONFIGS = 3
+MAX_PING_MS = 800
+MIN_VALID_CONFIGS = 7
 MAX_DOWNLOAD_CANDIDATES = 35
 PING_COUNT = 20
-PING_TIMEOUT_SECONDS = 3
+PING_TIMEOUT_SECONDS = 2
 STABILITY_SECONDS = 5
 MAX_PACKET_LOSS_PERCENT = 1.0
 CONFIG_MAX_AGE = timedelta(days=7)
@@ -412,12 +412,13 @@ def _validate_connected_config():
     return metrics
 
 
-def _validate_configs(configs, priorities=None):
+def _validate_configs(configs, priorities=None, on_result=None):
     priorities = priorities or {}
     approved = []
     for config_path in configs:
         print(f"\nValidando estabilidade: {config_path.name}")
         process = None
+        metrics = None
         try:
             process = _connect(config_path)
             if process is None:
@@ -437,6 +438,8 @@ def _validate_configs(configs, priorities=None):
         finally:
             if process is not None:
                 _disconnect(process)
+        if on_result is not None and on_result(config_path, metrics) is False:
+            break
 
     return sorted(
         approved,
@@ -503,25 +506,47 @@ def _check_existing_configs():
             except OSError as error:
                 print(f"Não foi possível remover {config_path.name}: {error}")
             continue
-        to_validate.append((config_path, digest, endpoint))
+        downloaded_at = (
+            cached.get("downloaded_at")
+            if isinstance(cached, dict) and isinstance(cached.get("downloaded_at"), str)
+            else _utc_timestamp()
+        )
+        to_validate.append((config_path, digest, downloaded_at))
 
     if to_validate:
-        validated = _validate_configs([path for path, _, _ in to_validate])
-        approved_paths = {path for path, _ in validated}
-        metrics_by_path = {path: metrics for path, metrics in validated}
-        for config_path, digest, endpoint in to_validate:
-            if config_path in approved_paths:
-                valid_configs.append(config_path)
+        metadata_by_path = {
+            path: (digest, downloaded_at)
+            for path, digest, downloaded_at in to_validate
+        }
+
+        def _persist_existing_validation_result(config_path, metrics):
+            if metrics is not None:
+                digest, downloaded_at = metadata_by_path[config_path]
                 status[config_path.name] = _status_entry(
                     digest,
                     "approved",
-                    metrics_by_path[config_path],
-                    cached.get("downloaded_at", _utc_timestamp())
-                    if isinstance(cached, dict)
-                    else _utc_timestamp(),
+                    metrics,
+                    downloaded_at,
                 )
+                valid_configs.append(config_path)
             else:
                 status.pop(config_path.name, None)
+            existing_names = {path.name for path in VPN_DIRECTORY.glob("*.ovpn")}
+            for name in list(status):
+                if name not in existing_names:
+                    status.pop(name, None)
+            _save_status(status)
+            if sum(
+                entry.get("state") == "approved"
+                for entry in status.values()
+                if isinstance(entry, dict)
+            ) >= MIN_VALID_CONFIGS:
+                return False
+
+        _validate_configs(
+            [path for path, _, _ in to_validate],
+            on_result=_persist_existing_validation_result,
+        )
 
     existing_names = {path.name for path in VPN_DIRECTORY.glob("*.ovpn")}
     status = {
@@ -530,6 +555,10 @@ def _check_existing_configs():
         if name in existing_names
     }
     _save_status(status)
+    approved = _approved_cached_configs()
+    if len(approved) >= MIN_VALID_CONFIGS:
+        approved = _trim_approved_configs(approved, status)
+        return approved, status
     return valid_configs, status
 
 
@@ -613,21 +642,34 @@ def _update_vpn_configs_once():
         for config_path in configs
         if config_path.name not in status
     ]
-    approved_new = _validate_configs(new_configs, priorities)
-    approved_by_path = {path: metrics for path, metrics in approved_new}
-    for config_path in new_configs:
-        digest, endpoint, downloaded_at = new_metadata[config_path]
-        if not config_path.exists():
+    def _persist_new_validation_result(config_path, metrics):
+        digest, _, downloaded_at = new_metadata[config_path]
+        if not config_path.exists() or metrics is None:
             status.pop(config_path.name, None)
-        elif config_path in approved_by_path:
+        else:
             status[config_path.name] = _status_entry(
                 digest,
                 "approved",
-                approved_by_path[config_path],
+                metrics,
                 downloaded_at,
             )
-        else:
-            status.pop(config_path.name, None)
+        existing_names = {path.name for path in VPN_DIRECTORY.glob("*.ovpn")}
+        for name in list(status):
+            if name not in existing_names:
+                status.pop(name, None)
+        _save_status(status)
+        if sum(
+            entry.get("state") == "approved"
+            for entry in status.values()
+            if isinstance(entry, dict)
+        ) >= MIN_VALID_CONFIGS:
+            return False
+
+    _validate_configs(
+        new_configs,
+        priorities,
+        on_result=_persist_new_validation_result,
+    )
     status = {
         name: entry
         for name, entry in status.items()
@@ -652,6 +694,18 @@ def _update_vpn_configs_once():
     if not approved:
         raise RuntimeError("Nenhuma configuração VPN passou nos testes de estabilidade.")
 
+    approved_paths = _trim_approved_configs(
+        [config_path for config_path, _ in approved],
+        status,
+    )
+    approved = [
+        (
+            config_path,
+            status[config_path.name].get("metrics", {}),
+        )
+        for config_path in approved_paths
+        if config_path.name in status
+    ]
     print(f"{len(approved)} configuração(ões) aprovadas e disponíveis.")
     return [config_path for config_path, _ in approved]
 
@@ -681,6 +735,36 @@ def _discard_cached_config(config_path, status, reason):
     _save_status(status)
 
 
+def _trim_approved_configs(configs, status):
+    if len(configs) < MIN_VALID_CONFIGS:
+        return configs
+
+    def sort_key(config_path):
+        metrics = status.get(config_path.name, {}).get("metrics", {})
+        return (
+            metrics.get("loss", float("inf")),
+            metrics.get("jitter", float("inf")),
+            metrics.get("average", float("inf")),
+        )
+
+    retained = sorted(configs, key=sort_key)[:MIN_VALID_CONFIGS]
+    retained_names = {config_path.name for config_path in retained}
+    for config_path in VPN_DIRECTORY.glob("*.ovpn"):
+        if config_path.name in retained_names:
+            continue
+        print(f"Configuração excedente removida: {config_path.name}")
+        status.pop(config_path.name, None)
+        try:
+            config_path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            print(f"Não foi possível remover {config_path.name}: {error}")
+
+    _save_status(status)
+    return retained
+
+
 def _approved_cached_configs():
     status = _load_status()
     approved = []
@@ -707,6 +791,7 @@ def prepare_vpn_configs():
 
     approved = _approved_cached_configs()
     if len(approved) >= MIN_VALID_CONFIGS:
+        approved = _trim_approved_configs(approved, status)
         print(f"{len(approved)} configuração(ões) aprovadas no cache.")
         return approved
 

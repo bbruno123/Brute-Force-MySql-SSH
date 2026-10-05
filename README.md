@@ -352,19 +352,76 @@ Escolha (mysql/ssh): mysql
 
  `prepare_vpn_configs()` está no arquivo `vpn_vibe_coded.py` e é chamado tanto por `mysql.py` quanto por `ssh.py` antes do início das tentativas de autenticação.
 
- A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de pelo menos **3 configurações aprovadas**:
+ A função **não abre a conexão VPN diretamente**. Ela prepara e garante que exista um conjunto de pelo menos **6 configurações aprovadas** (`MIN_VALID_CONFIGS = 6`):
 
  1. Procura em `ovpn_dinamics/` configurações que já foram aprovadas, cujo conteúdo ainda corresponde ao hash salvo e cuja data de download não tenha mais de **7 dias**.
  2. Remove do diretório e do `vpn_status.json` as configurações expiradas ou que não possuem uma data de download válida.
- 3. Reutiliza o cache somente quando existem pelo menos 3 configurações aprovadas e válidas.
- 4. Se houver menos de 3 configurações válidas, mesmo que existam algumas aprovadas no cache, consulta a API do VPN Gate e inicia uma nova rodada para completar o conjunto.
+ 3. Reutiliza o cache somente quando existem pelo menos 6 configurações aprovadas e válidas.
+ 4. Se houver menos de 6 configurações válidas, mesmo que existam algumas aprovadas no cache, consulta a API do VPN Gate e inicia uma nova rodada para completar o conjunto.
  5. Remove duplicatas e acrescenta `remote-cert-tls server` quando a configuração não possui uma verificação equivalente.
  6. Conecta temporariamente em cada configuração nova para testar o túnel, a latência, a perda de pacotes, a estabilidade e, quando configurados, os destinos SSH e MySQL.
- 7. Salva cada configuração aprovada em `vpn_status.json` com hash, estado, métricas e o campo `downloaded_at` em UTC.
- 8. Se uma rodada aprovar menos configurações do que o necessário, mantém as aprovadas e repete o download e a validação em outra rodada.
- 9. Só finaliza quando acumula pelo menos 3 configurações aprovadas; se uma rodada não encontrar nenhuma configuração OpenVPN utilizável ou válida, encerra com erro explícito.
+ 7. Atualiza o `vpn_status.json` a cada configuração validada (aprovada ou rejeitada), salvando hash, estado, métricas e o campo `downloaded_at` em UTC para as aprovadas.
+ 8. Valida as configurações em sequência e interrompe a rodada imediatamente quando atinge o mínimo de 6 aprovações.
+ 9. Só finaliza quando acumula pelo menos 6 configurações aprovadas; se uma rodada não encontrar nenhuma configuração OpenVPN utilizável ou válida, encerra com erro explícito.
+10. Se todas as configurações aprovadas falharem ao conectar, remove as configurações problemáticas, baixa e valida uma nova lista e repete as tentativas automaticamente.
+11. Quando existem pelo menos `MIN_VALID_CONFIGS`, mantém somente as melhores segundo perda, jitter e latência média e remove todos os outros arquivos `.ovpn` excedentes, inclusive os que foram baixados mas não foram aprovados.
+12. Ao atingir o mínimo, remove imediatamente as configurações baixadas que ainda não foram validadas e as configurações aprovadas excedentes, mantendo somente as 6 selecionadas.
 
  Depois dessa preparação, `openvpn_enter_()` escolhe uma configuração aprovada e inicia o OpenVPN. Se uma conexão falhar durante a execução, `mysql.py` e `ssh.py` chamam novamente essa rotina por meio de `reconnect_vpn()`.
+
+ ### Tempo da primeira validação
+
+ A primeira execução pode demorar porque não reutiliza imediatamente um conjunto pronto: consulta a API do VPN Gate, baixa configurações, inicia uma conexão OpenVPN temporária e executa os testes em cada configuração. Configurações com túnel indisponível também podem consumir o tempo de conexão e de timeout antes de serem descartadas. Se menos de 6 configurações forem aprovadas, novas rodadas de download e validação serão iniciadas.
+
+ O tempo depende principalmente de:
+
+ - quantidade de configurações candidatas;
+ - tempo de resposta da API e dos downloads;
+ - tempo para o OpenVPN completar a conexão;
+ - latência, perda de pacotes e disponibilidade de cada servidor;
+ - quantidade de configurações que atingem os timeouts;
+ - quantidade de rodadas necessárias para obter pelo menos 6 configurações aprovadas.
+
+ Com os valores atuais do código:
+
+ ```python
+ PING_COUNT = 20
+ PING_TIMEOUT_SECONDS = 2
+ STABILITY_SECONDS = 5
+ ```
+
+ O `ping` envia aproximadamente um pacote por segundo. Para uma VPN que responde normalmente:
+
+ ```text
+ tempo do ping ≈ PING_COUNT - 1
+ tempo total ≈ (PING_COUNT - 1) + STABILITY_SECONDS
+ tempo total ≈ (20 - 1) + 5 = 24 segundos por configuração
+ ```
+
+ Assim, uma configuração estável costuma levar aproximadamente **24 segundos**, sem contar o tempo de download e de conexão do OpenVPN.
+
+ Para uma VPN sem resposta ou muito lenta, o limite do comando `ping` é calculado por:
+
+ ```text
+ timeout do ping = (PING_COUNT × PING_TIMEOUT_SECONDS) + 5
+ timeout do ping = (20 × 2) + 5 = 45 segundos
+ ```
+
+ Somando a espera de estabilidade:
+
+ ```text
+ rejeição após falha ≈ timeout do ping + STABILITY_SECONDS
+ rejeição após falha ≈ 45 + 5 = 50 segundos
+ ```
+
+ A conexão OpenVPN possui ainda timeout próprio de até 30 segundos. Portanto, uma configuração que não conecta pode levar aproximadamente:
+
+ ```text
+ tempo máximo aproximado ≈ timeout OpenVPN + timeout do ping + estabilidade
+ tempo máximo aproximado ≈ 30 + 45 + 5 = 80 segundos
+ ```
+
+ Esses valores são estimativas. O tempo real pode ser menor ou maior dependendo da rede, do sistema, do servidor VPN e da saída do comando `ping`. Além disso, cada configuração pode ser tentada até 3 vezes durante a conexão normal; uma configuração que falha antes de iniciar o teste de ping normalmente consome até cerca de `3 × 30 = 90 segundos`.
 
  ## 🤖 Autoria e recursos adicionais identificados
 
@@ -382,8 +439,8 @@ Escolha (mysql/ssh): mysql
  - download automático de configurações pelo VPN Gate;
  - cache persistente de configurações aprovadas em `vpn_status.json`;
  - registro da data de download (`downloaded_at`) e expiração automática após 7 dias;
- - exigência de pelo menos 3 configurações aprovadas antes de reutilizar o cache;
- - repetição de rodadas de download e validação quando o cache ou uma rodada ainda não atingir 3 configurações aprovadas;
+ - exigência de pelo menos 6 configurações aprovadas antes de reutilizar o cache;
+ - repetição de rodadas de download e validação quando o cache ou uma rodada ainda não atingir 6 configurações aprovadas;
  - verificação de hash, remoção de configurações duplicadas e descarte de configurações que falharam;
  - filtragem regional, limite de latência, medição de perda de pacotes e teste opcional de destinos TCP;
  - ordenação das VPNs pela estabilidade medida e escolha aleatória entre as configurações aprovadas.
@@ -396,7 +453,7 @@ Escolha (mysql/ssh): mysql
 
  Depois de 10 falhas consecutivas desse tipo, o programa encerra a conexão VPN antiga e tenta conectar usando outra configuração aprovada. Ele também pode trocar de configuração periodicamente durante a execução.
 
- Essa recuperação não é garantida em todos os casos. O programa pode ser encerrado com erro se nenhuma configuração VPN aprovada estiver disponível ou se todas as tentativas de reconexão falharem. A queda da VPN também não é monitorada por um processo separado: ela só é percebida quando uma tentativa MySQL ou SSH deixa de responder ou é encerrada.
+ Essa recuperação não é garantida em todos os casos. Se todas as configurações aprovadas falharem, `openvpn_enter_()` inicia nova rodada de download e validação automaticamente. O programa pode ser encerrado com erro se essa atualização falhar explicitamente, por exemplo, por indisponibilidade da API ou por não encontrar configurações OpenVPN utilizáveis. A queda da VPN também não é monitorada por um processo separado: ela só é percebida quando uma tentativa MySQL ou SSH deixa de responder ou é encerrada.
 
  ## 🔐 VPN
 
@@ -422,7 +479,7 @@ vpn_vibe_coded.py
 
  O cache em `vpn_status.json` registra, para cada configuração aprovada, o hash do arquivo, o estado (`approved`), as métricas da validação e a data/hora UTC em `downloaded_at`. Uma configuração é considerada expirada após 7 dias do download. Na próxima execução de `prepare_vpn_configs()`, ela é removida junto com o arquivo `.ovpn`, e o processo de download e validação é executado novamente.
 
- Mesmo que existam configurações aprovadas no cache, elas só são reutilizadas quando pelo menos 3 continuam válidas. Com menos de 3, o programa mantém as configurações aproveitáveis e busca, baixa e valida novas configurações. Se a primeira rodada não atingir o mínimo, novas rodadas são executadas até acumular 3 configurações aprovadas. Cada configuração aprovada em uma rodada recebe sua própria data `downloaded_at`.
+ Mesmo que existam configurações aprovadas no cache, elas só são reutilizadas quando pelo menos 6 continuam válidas. Com menos de 6, o programa mantém as configurações aproveitáveis e busca, baixa e valida novas configurações. A validação para assim que a sexta configuração é aprovada. Quando há pelo menos 6 aprovadas, as seis melhores segundo perda, jitter e latência média são mantidas; todos os demais arquivos `.ovpn`, inclusive os não validados, são removidos. Cada configuração aprovada em uma rodada recebe sua própria data `downloaded_at`.
 
  A conexão pode apresentar timeouts quando o servidor VPN escolhido está distante do destino ou apresenta alta latência, perda de pacotes ou uma rota instável. Durante a execução, `mysql.py` e `ssh.py` reconectam após falhas consecutivas e também trocam periodicamente de configuração.
 
