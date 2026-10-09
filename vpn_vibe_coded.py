@@ -29,7 +29,7 @@ PING_COUNT = 20
 PING_TIMEOUT_SECONDS = 2
 STABILITY_SECONDS = 5
 MAX_PACKET_LOSS_PERCENT = 1.0
-CONFIG_MAX_AGE = timedelta(days=7)
+CONFIG_MAX_AGE = timedelta(days=1)
 
 COUNTRY_TIERS = [
     ("BR",),
@@ -712,10 +712,17 @@ def _update_vpn_configs_once():
 
 def update_vpn_configs():
     """Repete download e validação até reunir o mínimo de VPNs aprovadas."""
+    previous_approved_names = None
     while True:
         approved = _update_vpn_configs_once()
         if len(approved) >= MIN_VALID_CONFIGS:
             return approved
+        approved_names = tuple(sorted(path.name for path in approved))
+        if approved_names == previous_approved_names:
+            raise RuntimeError(
+                "A atualização não encontrou novas configurações VPN aprovadas."
+            )
+        previous_approved_names = approved_names
         print(
             f"Apenas {len(approved)} configuração(ões) aprovadas; "
             f"é necessário atingir {MIN_VALID_CONFIGS}. "
@@ -807,9 +814,15 @@ def openvpn_enter_():
     """Conecta usando o cache e baixa novas configurações quando necessário."""
     while True:
         status = _load_status()
+        expired = _discard_expired_configs(status)
+        if expired:
+            _save_status(status)
         approved = _approved_cached_configs()
-        if not approved:
-            print("Nenhuma configuração aprovada disponível; iniciando nova rodada.")
+        if len(approved) < MIN_VALID_CONFIGS:
+            print(
+                f"Apenas {len(approved)} configuração(ões) aprovadas; "
+                "iniciando nova rodada de download e validação."
+            )
             prepare_vpn_configs()
             continue
 
@@ -843,6 +856,17 @@ def openvpn_enter_():
                     "não foi possível estabelecer o túnel",
                 )
             print("Limite de 3 tentativas atingido. Escolhendo outra configuração...")
+
+            approved = _approved_cached_configs()
+            if len(approved) < MIN_VALID_CONFIGS:
+                print(
+                    f"Restam apenas {len(approved)} configuração(ões) aprovadas; "
+                    "baixando e validando novas configurações."
+                )
+                prepare_vpn_configs()
+                status = _load_status()
+                approved = _approved_cached_configs()
+                remaining = approved[:]
 
         print(
             "Todas as configurações aprovadas falharam; "
