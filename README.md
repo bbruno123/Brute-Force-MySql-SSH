@@ -102,6 +102,8 @@ wordlists/passwords/
 
  Para adicionar uma nova lista, coloque um arquivo de texto na pasta correspondente. O programa encontrará o arquivo automaticamente na próxima execução.
 
+ Se você já souber qual usuário deseja testar, crie um arquivo de texto, por exemplo `usuario.txt`, coloque apenas esse usuário nele e salve o arquivo em `wordlists/users/`. Ao selecionar essa wordlist, o programa testará as senhas escolhidas somente para esse usuário.
+
  Os caminhos são calculados a partir da localização dos próprios scripts. O programa pode ser iniciado a partir de outro diretório sem exigir caminhos absolutos manuais.
 
  ## 🔢 Valores iniciais das Wordlists
